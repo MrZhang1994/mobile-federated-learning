@@ -6,19 +6,19 @@ import torch.nn.functional as F
 # import config
 # import convlstm
 import PointerNet
+import config
 
+# Parameters for ddpg
+MEMORY_CAPACITY = config.MEMORY_CAPACITY    # size of experience pool
+LR_A = config.LR_A                          # learning rate for actor
+LR_C = config.LR_C                          # learning rate for critic
+GAMMA = config.GAMMA                        # reward discount
+TAU = config.TAU                            # soft replacement
+use_gpu = config.use_gpu                    # use GPU or not
 
-MEMORY_CAPACITY = 1
-LR_A = 0.01    # learning rate for actor
-LR_C = 0.001    # learning rate for critic
-GAMMA = 0.9     # reward discount
-TAU = 0.01      # soft replacement
-BATCH_SIZE = 32
-
-use_gpu = False
-
-
-
+# Parameters for multi-layer PointerNetwork
+FEATURE_DIMENSION = config.FEATURE_DIMENSION
+MAXIMUM_CLIENT_NUM_PLUS_ONE = config.MAXIMUM_CLIENT_NUM_PLUS_ONE
 
 
 # x = torch.rand((32, 10, 1, 1, 1910))
@@ -32,23 +32,23 @@ use_gpu = False
 # print(h.shape)
 
 class ANet(nn.Module):
-    def __init__(self, itr_num, embedding_dimension, hidden_dimension, lstm_layers_num):
+    def __init__(self, max_itr_num, embedding_dimension, hidden_dimension, lstm_layers_num):
         super(ANet, self).__init__()
 
-        self.itr_num = itr_num
+        self.max_itr_num = max_itr_num
         self.embedding_dim = embedding_dimension
         self.hidden_dim = hidden_dimension
 
         self.pointer_network_layer1 = []
-        for i in range(itr_num):
-            self.pointer_network_layer1.append(PointerNet.PointerNet(input_dim = 3,
+        for i in range(self.max_itr_num):
+            self.pointer_network_layer1.append(PointerNet.PointerNet(input_dim = FEATURE_DIMENSION,
                                                                         embedding_dim = embedding_dimension,
                                                                         hidden_dim = hidden_dimension,
                                                                         lstm_layers = lstm_layers_num,
                                                                         dropout = 0,
                                                                         bidir=False))
 
-        self.pointer_network_layer2 = PointerNet.PointerNet(input_dim = 61,
+        self.pointer_network_layer2 = PointerNet.PointerNet(input_dim = MAXIMUM_CLIENT_NUM_PLUS_ONE,
                                                                 embedding_dim = embedding_dimension,
                                                                 hidden_dim = hidden_dimension,
                                                                 lstm_layers = lstm_layers_num,
@@ -62,9 +62,9 @@ class ANet(nn.Module):
         '''
         # print(state.shape)
         itr = torch.ones((1,state.shape[1],1))
-        eof = torch.zeros((1,1,3))
+        eof = torch.zeros((1,1,FEATURE_DIMENSION))
         state_list = []
-        for i in range(self.itr_num):
+        for i in range(self.max_itr_num):
 
             state_list.append(torch.cat((state, (i+1)*itr), dim = 2))
             state_list[i] = torch.cat((state_list[i], eof), dim = 1)
@@ -73,7 +73,7 @@ class ANet(nn.Module):
         pointers = []
         hidden_states = []
 
-        for j in range(self.itr_num):
+        for j in range(self.max_itr_num):
             output, pointer, hidden_state = self.pointer_network_layer1[j](state_list[j])
             outputs.append(output[:,0,:])
             pointers.append(pointer)
@@ -82,7 +82,7 @@ class ANet(nn.Module):
         outputs = torch.cat(outputs, 0)
         outputs = torch.unsqueeze(outputs, dim = 0)
 
-        output_60 = torch.zeros((1,self.itr_num,61))
+        output_60 = torch.zeros((1,self.max_itr_num,MAXIMUM_CLIENT_NUM_PLUS_ONE))
         output_60[:,:,0:outputs.size(2)] = outputs
 
         output2, pointer2, hidden_state2 = self.pointer_network_layer2(output_60)
@@ -96,32 +96,32 @@ class ANet(nn.Module):
         return itr_num, pointer, hidden_states
 
 class CNet(nn.Module):
-    def __init__(self, itr_num, embedding_dimension, hidden_dimension, lstm_layers_num):
+    def __init__(self, max_itr_num, embedding_dimension, hidden_dimension, lstm_layers_num):
         super(CNet, self).__init__()
 
-        self.itr_num = itr_num
+        self.max_itr_num = max_itr_num
         self.embedding_dim = embedding_dimension
         self.hidden_dim = hidden_dimension
 
         self.pointer_network_layer1 = []
-        for i in range(itr_num):
-            self.pointer_network_layer1.append(PointerNet.PointerNet(input_dim = 3,
+        for i in range(max_itr_num):
+            self.pointer_network_layer1.append(PointerNet.PointerNet(input_dim = FEATURE_DIMENSION,
                                                                         embedding_dim = embedding_dimension,
                                                                         hidden_dim = hidden_dimension,
                                                                         lstm_layers = lstm_layers_num,
                                                                         dropout = 0,
                                                                         bidir=False))
 
-        self.pointer_network_layer2 = PointerNet.PointerNet(input_dim = 61,
+        self.pointer_network_layer2 = PointerNet.PointerNet(input_dim = MAXIMUM_CLIENT_NUM_PLUS_ONE,
                                                                 embedding_dim = embedding_dimension,
                                                                 hidden_dim = hidden_dimension,
                                                                 lstm_layers = lstm_layers_num,
                                                                 dropout = 0,
                                                                 bidir=False)
 
-        self.fcc = nn.Linear(self.hidden_dim*(self.itr_num+1), self.hidden_dim)
+        self.fcc = nn.Linear(self.hidden_dim*(self.max_itr_num+1), self.hidden_dim)
         self.fcc.weight.data.normal_(0, 0.1)
-        self.fca = nn.Linear(self.hidden_dim*(self.itr_num+1), self.hidden_dim)
+        self.fca = nn.Linear(self.hidden_dim*(self.max_itr_num+1), self.hidden_dim)
         self.fca.weight.data.normal_(0, 0.1)
 
         self.out = nn.Linear(self.hidden_dim, 1)
@@ -131,9 +131,9 @@ class CNet(nn.Module):
         # print(s.shape)
 
         itr = torch.ones((1,state.shape[1],1))
-        eof = torch.zeros((1,1,3))
+        eof = torch.zeros((1,1,FEATURE_DIMENSION))
         state_list = []
-        for i in range(self.itr_num):
+        for i in range(self.max_itr_num):
             # print(state.shape)
             # print(itr.shape)
             state_list.append(torch.cat((state, (i+1)*itr), dim = 2))
@@ -143,7 +143,7 @@ class CNet(nn.Module):
         pointers = []
         hidden_states = []
 
-        for j in range(self.itr_num):
+        for j in range(self.max_itr_num):
             output, pointer, hidden_state = self.pointer_network_layer1[j](state_list[j])
             outputs.append(output[:,0,:])
             pointers.append(pointer)
@@ -152,7 +152,7 @@ class CNet(nn.Module):
         outputs = torch.cat(outputs, 0)
         outputs = torch.unsqueeze(outputs, dim = 0)
 
-        output_60 = torch.zeros((1,self.itr_num,61))
+        output_60 = torch.zeros((1,self.max_itr_num,MAXIMUM_CLIENT_NUM_PLUS_ONE))
         output_60[:, :, 0:outputs.size(2)] = outputs
 
         output2, pointer2, hidden_state2 = self.pointer_network_layer2(output_60)
@@ -172,17 +172,17 @@ class CNet(nn.Module):
         return value
 
 class DDPG(object):
-    def __init__(self, itr_num, embedding_dim, hidden_dim, lstm_layers):
+    def __init__(self, max_itr_num, embedding_dim, hidden_dim, lstm_layers):
 
-        self.itr_num = itr_num
+        self.max_itr_num = max_itr_num
         self.embedding_dim = embedding_dim
         self.hidden_dim = hidden_dim
         self.lstm_layers = lstm_layers
 
-        self.Actor_eval = ANet(itr_num, embedding_dim, hidden_dim, lstm_layers)
-        self.Actor_target = ANet(itr_num, embedding_dim, hidden_dim, lstm_layers)
-        self.Critic_eval = CNet(itr_num, embedding_dim, hidden_dim, lstm_layers)
-        self.Critic_target = CNet(itr_num, embedding_dim, hidden_dim, lstm_layers)
+        self.Actor_eval = ANet(self.max_itr_num, embedding_dim, hidden_dim, lstm_layers)
+        self.Actor_target = ANet(self.max_itr_num, embedding_dim, hidden_dim, lstm_layers)
+        self.Critic_eval = CNet(self.max_itr_num, embedding_dim, hidden_dim, lstm_layers)
+        self.Critic_target = CNet(self.max_itr_num, embedding_dim, hidden_dim, lstm_layers)
 
         # self.Actor_eval.load_state_dict(torch.load('result/0512/0512_1015/Actor_eval.pkl'))
         # self.Actor_eval.eval()

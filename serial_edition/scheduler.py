@@ -11,7 +11,13 @@ import time
 import copy
 
 import ddpg_mpn
-MEMORY_CAPACITY = 1
+import config
+
+MEMORY_CAPACITY = config.MEMORY_CAPACITY
+MAXIMUM_ITERATION_NUM = config.MAXIMUM_ITERATION_NUM
+EMBEDDING_DIMENSION = config.EMBEDDING_DIMENSION
+HIDDEN_DIMENSION = config.HIDDEN_DIMENSION
+LSTM_LAYERS_NUM = config.LSTM_LAYERS_NUM
 
 
 
@@ -92,7 +98,7 @@ class Environment:
 class Scheduler_MPN:
     def __init__(self):
         self.rwd = Reward()
-        self.agent = ddpg_mpn.DDPG(4, 16, 16, 1)
+        self.agent = ddpg_mpn.DDPG(LSTM_LAYERS_NUM, EMBEDDING_DIMENSION, HIDDEN_DIMENSION, LSTM_LAYERS_NUM)
         self.env = Environment()
 
 

@@ -40,3 +40,26 @@ boardX = SummaryWriter(comment="-fedavg")
 G1 = 2
 G2 = 2
 # ************************************************************************************************************ #
+
+
+# Parameters for ddpg_mpn
+
+# ==========================
+# Parameters for ddpg
+# ==========================
+MEMORY_CAPACITY = 1 # size of experience pool
+LR_A = 0.01         # learning rate for actor
+LR_C = 0.001        # learning rate for critic
+GAMMA = 0.9         # reward discount
+TAU = 0.01          # soft replacement
+use_gpu = False     # use GPU or not
+
+# ==========================
+# Parameters for multi-layer PointerNetwork
+# ==========================
+FEATURE_DIMENSION = 3
+MAXIMUM_CLIENT_NUM_PLUS_ONE = 61
+EMBEDDING_DIMENSION = 16
+HIDDEN_DIMENSION = 16
+LSTM_LAYERS_NUM = 1
+MAXIMUM_ITERATION_NUM = 4
