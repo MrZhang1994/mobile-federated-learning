@@ -94,7 +94,8 @@ class FedAvgTrainer(object):
 # ************************************************************************************************************ #
     def tx_time(self, client_indexes):
         if not client_indexes:
-            return
+            self.time_counter += 1
+            return 
         # read the channel condition for corresponding cars.
         channel_res = np.reshape(np.array(channel_data[channel_data['Time'] == self.time_counter * channel_data['Car'].isin(client_indexes)]["Distance to BS(4982,905)"]), (1, -1))
         logger.debug("channel_res: {}".format(channel_res))
@@ -117,6 +118,7 @@ class FedAvgTrainer(object):
         loss_locals = [] # initial a lst to store loss values
         FPF1_idx_lst = np.zeros((1, int(client_num_in_total))) # maintain a lst for FPF1 indexes
         FPF2_idx_lst = np.zeros((1, int(client_num_in_total))) # maintain a lst for FPF2 indexes
+        local_loss_lst = np.zeros((1, client_num_in_total)) # maintain a lst for local losses
         # Initialize A for calculating FPF2 index
         A_mat = dict()
         for para in self.model_global.state_dict().keys():
@@ -164,8 +166,9 @@ class FedAvgTrainer(object):
              # Initialization
             w_locals, loss_locals, time_interval_lst = [], [], []
             # Update local_itr_lst & client_selec_lst
-            local_itr_lst[0, round_idx] = local_itr
-            client_selec_lst[round_idx, client_indexes] = 1
+            if client_indexes and local_itr > 0: # only if client_idx is not empty and local_iter > 0, then I will update following values
+                local_itr_lst[0, round_idx] = local_itr
+                client_selec_lst[round_idx, client_indexes] = 1
 # ************************************************************************************************************ #
             """
             for scalability: following the original FedAvg algorithm, we uniformly sample a fraction of clients in each round.
@@ -193,6 +196,8 @@ class FedAvgTrainer(object):
                 time_interval_lst.append(time_interval)
                 # update the local weights
                 local_w_lst[client_idx] = copy.deepcopy(w)
+                # update the local_loss_lst
+                local_loss_lst[0, client_idx] = loss
 # ************************************************************************************************************ #
 
                 w_locals.append((client.get_sample_number(), copy.deepcopy(w)))
