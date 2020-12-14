@@ -243,13 +243,13 @@ if __name__ == "__main__":
         # os.makedirs(path+'/SystemPerformance')
         # os.makedirs(path+'/code')
 
-    para_record1 = open(path+'/Para1.csv', 'w', encoding='utf-8', newline='')
+    para_record1 = open(path+'/trainer_'+str(args.method)[4:]+'_'+DAY+'_'+Time+'.csv', 'w', encoding='utf-8', newline='')
     csv_writer1 = csv.writer(para_record1)
     csv_writer1.writerow(['round index', 'time counter', 'client index', 'train time', 'local loss', 'global loss', 'test accuracy'])
-    para_record2 = open(path+'/Para2.csv', 'w', encoding='utf-8', newline='')
+    para_record2 = open(path+'/scheduler_'+str(args.method)[4:]+'_'+DAY+'_'+Time+'.csv', 'w', encoding='utf-8', newline='')
     csv_writer2 = csv.writer(para_record2)
     # csv_writer2.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'loss_a', 'loss_c'])
-    para_record3 = open(path+'/Para3.csv', 'w', encoding='utf-8', newline='')
+    para_record3 = open(path+'/FPF_'+str(args.method)[4:]+'_'+DAY+'_'+Time+'.csv', 'w', encoding='utf-8', newline='')
     csv_writer3 = csv.writer(para_record3)
     list_a = ['time counter']
     for i in range(client_num_in_total):

@@ -217,7 +217,7 @@ class FedAvgTrainer(object):
 
             # update FPF index list
             FPF1_idx_lst = FPF1_cal(local_w_lst)
-            csv_writer3.writerow([self.time_counter]+FPF1_idx_lst[0].tolist())
+            # csv_writer3.writerow([self.time_counter]+FPF1_idx_lst[0].tolist())
             # calculate FPF2 index.
             def FPF2_cal(local_w_lst):
                 def FPF2_numerator(w):
