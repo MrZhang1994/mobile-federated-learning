@@ -141,14 +141,14 @@ class FedAvgTrainer(object):
             # print(FPF2_idx_lst)
             if method == "sch_mpn":
                 if round_idx == 0:
-                    csv_writer2.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'loss_a', 'loss_c'])
+                    csv_writer2.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'reward', 'loss_a', 'loss_c'])
                     client_indexes, local_itr = scheduler.sch_mpn_initial(round_idx, self.time_counter, csv_writer2)
                 else:
-                    client_indexes, local_itr = scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst[0], csv_writer2)
+                    client_indexes, local_itr = scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst[0], local_loss_lst, csv_writer2)
             else:
                 # csv_writer2.writerow(['time counter', 'available car', 'channel_state', 'client index', 'iteration'])
                 if round_idx == 0:
-                    csv_writer2.writerow(['time counter', 'client index', 'iteration'])
+                    csv_writer2.writerow(['time counter', 'client index', 'iteration', 'reward'])
                 client_indexes, local_itr = scheduler(round_idx, self.time_counter, csv_writer2)
             # ================================================================================================
             # time.sleep(0.5)
