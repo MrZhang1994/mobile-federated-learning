@@ -205,8 +205,7 @@ class FedAvgTrainer(object):
                 logger.info('Client {:3d}, loss {:.3f}'.format(client_idx, loss))
                 loss_list.append(loss)
 
-# ************************************************************************************************************ #
-            
+# ************************************************************************************************************ #     
             # calculate FPF1 index.
             def FPF1_cal(local_w_lst):
                 def FPF1_norm_sum(w):
@@ -251,9 +250,9 @@ class FedAvgTrainer(object):
             csv_writer1_line.append(np.var(local_loss_lst))
             csv_writer1_line.append(str(loss_list))
             # if current time_counter has exceed the channel table, I will simply stop early
-            if self.time_counter >= channel_data['Time'].max(): 
-                logger.info("++++++++++++++training process ends early++++++++++++++")
-                break
+            if self.time_counter >= channel_data["Time"].max():
+                logger.info("++++++++++++++schedualing restart++++++++++++++")
+                self.time_counter = 0
             self.time_counter = np.array(channel_data['Time'][channel_data['Time'] > self.time_counter])[0]
 # ************************************************************************************************************ #
 
