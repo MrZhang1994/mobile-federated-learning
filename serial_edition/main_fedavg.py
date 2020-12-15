@@ -245,7 +245,7 @@ if __name__ == "__main__":
 
     para_record1 = open(path+'/trainer_'+str(args.method)[4:]+'_'+DAY+'_'+Time+'.csv', 'w', encoding='utf-8', newline='')
     csv_writer1 = csv.writer(para_record1)
-    csv_writer1.writerow(['round index', 'time counter', 'client index', 'train time', 'local loss', 'global loss', 'test accuracy'])
+    csv_writer1.writerow(['round index', 'time counter', 'client index', 'train time', 'fairness', 'local loss', 'global loss', 'test accuracy'])
     para_record2 = open(path+'/scheduler_'+str(args.method)[4:]+'_'+DAY+'_'+Time+'.csv', 'w', encoding='utf-8', newline='')
     csv_writer2 = csv.writer(para_record2)
     # csv_writer2.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'loss_a', 'loss_c'])

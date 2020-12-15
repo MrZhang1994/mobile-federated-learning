@@ -264,9 +264,9 @@ class DDPG(object):
             pointer = pointer[0: count]
         hidden_states = hidden_states.detach().numpy()
         # ================================================================================================
-        # Amender
-        if pointer == []:
-            pointer = [0]
+        # # Amender
+        # if pointer == []:
+        #     pointer = [0]
         # ================================================================================================      
         return itr_num, pointer, hidden_states
         

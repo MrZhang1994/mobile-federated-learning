@@ -47,7 +47,7 @@ G2 = 2
 # ==========================
 # Parameters for ddpg
 # ==========================
-MEMORY_CAPACITY = 1 # size of experience pool
+MEMORY_CAPACITY = 50 # size of experience pool
 LR_A = 0.01         # learning rate for actor
 LR_C = 0.001        # learning rate for critic
 GAMMA = 0.9         # reward discount
@@ -57,7 +57,7 @@ use_gpu = False     # use GPU or not
 # ==========================
 # Parameters for multi-layer PointerNetwork
 # ==========================
-FEATURE_DIMENSION = 3
+FEATURE_DIMENSION = 4
 MAXIMUM_CLIENT_NUM_PLUS_ONE = 61
 EMBEDDING_DIMENSION = 16
 HIDDEN_DIMENSION = 16

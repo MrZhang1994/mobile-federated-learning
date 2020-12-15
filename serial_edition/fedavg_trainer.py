@@ -141,14 +141,14 @@ class FedAvgTrainer(object):
             # print(FPF2_idx_lst)
             if method == "sch_mpn":
                 if round_idx == 0:
-                    csv_writer2.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'loss_a', 'loss_c'])
+                    csv_writer2.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'reward', 'loss_a', 'loss_c'])
                     client_indexes, local_itr = scheduler.sch_mpn_initial(round_idx, self.time_counter, csv_writer2)
                 else:
-                    client_indexes, local_itr = scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst[0], csv_writer2)
+                    client_indexes, local_itr = scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst[0], local_loss_lst, csv_writer2)
             else:
                 # csv_writer2.writerow(['time counter', 'available car', 'channel_state', 'client index', 'iteration'])
                 if round_idx == 0:
-                    csv_writer2.writerow(['time counter', 'client index', 'iteration'])
+                    csv_writer2.writerow(['time counter', 'client index', 'iteration', 'reward'])
                 client_indexes, local_itr = scheduler(round_idx, self.time_counter, csv_writer2)
             # ================================================================================================
             # time.sleep(0.5)
@@ -206,6 +206,7 @@ class FedAvgTrainer(object):
                 loss_list.append(loss)
 
 # ************************************************************************************************************ #
+            
             # calculate FPF1 index.
             def FPF1_cal(local_w_lst):
                 def FPF1_norm_sum(w):
@@ -247,6 +248,7 @@ class FedAvgTrainer(object):
                 self.time_counter += sum(time_interval_lst) * timing_ratio / len(time_interval_lst)
             logger.debug("time_counter after training: {}".format(self.time_counter))
             csv_writer1_line.append(self.time_counter-csv_writer1_line[1])
+            csv_writer1_line.append(np.var(local_loss_lst))
             csv_writer1_line.append(str(loss_list))
             # if current time_counter has exceed the channel table, I will simply stop early
             if self.time_counter >= channel_data['Time'].max(): 

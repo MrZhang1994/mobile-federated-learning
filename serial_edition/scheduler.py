@@ -69,6 +69,7 @@ class Reward:
         # float(np.matmul(FPF,(loss_locals.T)))
         Reward = ALPHA*(self.F_r_last-self.F_r)/(time_length*self.F_r)+BETA*float(np.matmul(FPF,(loss_locals.T))/np.sum(selection)-np.sum(FPF)/M)
         self.F_r_last = self.F_r
+        Reward = 10*Reward
         return Reward
         
 class Environment:
@@ -113,10 +114,11 @@ class Scheduler_MPN:
 
     def sch_mpn_initial(self, round_idx, time_counter, csv_writer2):
         channel_state, self.available_car = self.env.update(time_counter)
-        state = np.zeros((1, len(self.available_car[0]), 2))
+        state = np.zeros((1, len(self.available_car[0]), 3))
         for i in range(len(self.available_car[0])):
             state[0, i, 0] = channel_state[0, i]
             state[0, i, 1] = 0
+            state[0, i, 2] = 0
         itr_num, pointer, hidden_states = self.agent.choose_action(state)
 
         self.action_last = [itr_num, pointer, hidden_states]
@@ -139,10 +141,11 @@ class Scheduler_MPN:
 
     def sch_mpn_test(self, round_idx, time_counter):
         channel_state, self.available_car = self.env.update(time_counter)
-        state = np.zeros((1, len(self.available_car[0]), 2))
+        state = np.zeros((1, len(self.available_car[0]), 3))
         for i in range(len(self.available_car[0])):
             state[0, i, 0] = channel_state[0, i]
             state[0, i, 1] = 0
+            state[0, i, 2] = 0
         itr_num, pointer, hidden_states = self.agent.choose_action(state)
 
         self.action_last = [itr_num, pointer, hidden_states]
@@ -157,7 +160,7 @@ class Scheduler_MPN:
         return client_indexes, local_itr   
 
 
-    def sch_mpn(self, round_idx, time_counter, loss_locals, FPF_idx_lst, csv_writer2):
+    def sch_mpn(self, round_idx, time_counter, loss_locals, FPF_idx_lst, local_loss_lst, csv_writer2):
         # ================================================================================================
         # calculate reward
         csv_writer2_line = []
@@ -189,13 +192,15 @@ class Scheduler_MPN:
         csv_writer2_line.append(str(self.available_car[0].tolist()))
         csv_writer2_line.append(str(channel_state[0].tolist()))
 
-        state = np.zeros((1, len(self.available_car[0]), 2))
+        state = np.zeros((1, len(self.available_car[0]), 3))
         for i in range(len(self.available_car[0])):
             state[0, i, 0] = channel_state[0, i]
             if FPF_idx_lst==[]:
                 state[0, i, 1] = 0
             else:
                 state[0, i, 1] = FPF_idx_lst[int(self.available_car[0, i])]
+            state[0, i, 2] = local_loss_lst[0, int(self.available_car[0, i])]
+        # del available_car_last
         # ================================================================================================
         # train agent
         if len(pointer)>0:
@@ -215,6 +220,7 @@ class Scheduler_MPN:
         local_itr = itr_num
         csv_writer2_line.append(str(client_indexes))
         csv_writer2_line.append(local_itr)
+        csv_writer2_line.append(reward)
         csv_writer2.writerow(csv_writer2_line+loss)
         return client_indexes, local_itr
         # s_client_indexes = str(list(client_indexes))[1:-1].replace(',', '')
