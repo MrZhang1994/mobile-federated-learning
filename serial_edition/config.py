@@ -39,6 +39,9 @@ boardX = SummaryWriter(comment="-fedavg")
 # set hyperparameter for calculating FPF2 index
 G1 = 2
 G2 = 2
+
+# set the number of days until reinitialize the model
+restart_days = 1
 # ************************************************************************************************************ #
 
 

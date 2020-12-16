@@ -119,6 +119,8 @@ class FedAvgTrainer(object):
         FPF1_idx_lst = np.zeros((1, int(client_num_in_total))) # maintain a lst for FPF1 indexes
         FPF2_idx_lst = np.zeros((1, int(client_num_in_total))) # maintain a lst for FPF2 indexes
         local_loss_lst = np.zeros((1, client_num_in_total)) # maintain a lst for local losses
+        # counting days
+        counting_days = 0
         # Initialize A for calculating FPF2 index
         A_mat = dict()
         for para in self.model_global.state_dict().keys():
@@ -240,8 +242,9 @@ class FedAvgTrainer(object):
             FPF2_idx_lst = FPF2_cal(local_w_lst)
             csv_writer3.writerow([" "]+FPF2_idx_lst[0].tolist())
 # ************************************************************************************************************ #
+            # update global weights
+            w_glob = self.aggregate(w_locals)
 
-# ************************************************************************************************************ #
             # update the time counter
             if time_interval_lst:
                 self.time_counter += sum(time_interval_lst) * timing_ratio / len(time_interval_lst)
@@ -252,16 +255,19 @@ class FedAvgTrainer(object):
             # if current time_counter has exceed the channel table, I will simply stop early
             if self.time_counter >= channel_data["Time"].max():
                 logger.info("++++++++++++++schedualing restart++++++++++++++")
+                if counting_days == restart_days:
+                    for key in w_glob.keys():
+                        w_glob[key] = torch.rand(w_glob[key].size())
+                    counting_days = 0
+                else:
+                    counting_days += 1
                 self.time_counter = 0
+
+            # set the time_counter 
             self.time_counter = np.array(channel_data['Time'][channel_data['Time'] > self.time_counter])[0]
-# ************************************************************************************************************ #
-
-            # update global weights
-            w_glob = self.aggregate(w_locals)
-            # logger.info("global weights = " + str(w_glob))
-
             # copy weight to net_glob
             self.model_global.load_state_dict(w_glob)
+# ************************************************************************************************************ #
 
 # ************************************************************************************************************ #
             # update A_mat

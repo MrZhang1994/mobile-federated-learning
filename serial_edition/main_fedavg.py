@@ -20,7 +20,7 @@ import scheduler
 # ************************************************************************************************************ #
 
 # ************************************************************************************************************ #
-sys.path.insert(0, os.path.abspath("/csh/mobile-FL/FedML-master")) # add the root dir of FedML
+sys.path.insert(0, os.path.abspath("/home/zzp1012/FedML")) # add the root dir of FedML
 # ************************************************************************************************************ #
 
 from fedml_api.data_preprocessing.cifar10.data_loader import load_partition_data_cifar10
