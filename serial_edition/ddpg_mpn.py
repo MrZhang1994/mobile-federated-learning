@@ -21,7 +21,7 @@ use_gpu = config.use_gpu                    # use GPU or not
 # Parameters for multi-layer PointerNetwork
 FEATURE_DIMENSION = config.FEATURE_DIMENSION
 MAXIMUM_CLIENT_NUM_PLUS_ONE = config.MAXIMUM_CLIENT_NUM_PLUS_ONE
-
+AMEND_RATE = config.AMEND_RATE
 
 # x = torch.rand((32, 10, 1, 1, 1910))
 # xx = torch.zeros((32, 10, 1, 1, 2000))
@@ -38,12 +38,14 @@ def Amender(itr_num, pointer, state):
     channel_state = state[0, :, 0]
     channel_state_avg = np.mean(channel_state)
     amended_pointer = copy.deepcopy(pointer)
+    amended_itr = itr_num
     for i in range(len(channel_state)):
-        if channel_state[i] >= channel_state_avg and i not in pointer:
+        if (channel_state[i] >= channel_state_avg) and (i not in pointer) and (random.random()<AMEND_RATE):
             amended_pointer.append(i)
-        elif channel_state[i] < channel_state_avg and i in pointer:
+        elif (channel_state[i] < channel_state_avg) and (i in pointer) and (random.random()<AMEND_RATE):
             amended_pointer = amended_pointer.remove(i)
-    amended_itr = math.ceil((len(amended_pointer)/len(channel_state))/(1/4))
+    if random.random()<AMEND_RATE:
+        amended_itr = math.ceil((len(amended_pointer)/len(channel_state))/(1/4))
     return amended_itr, amended_pointer
 
 class ANet(nn.Module):
