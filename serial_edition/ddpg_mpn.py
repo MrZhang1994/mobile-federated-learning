@@ -35,15 +35,24 @@ AMEND_RATE = config.AMEND_RATE
 
 
 def Amender(itr_num, pointer, state):
+    # print(type(pointer))
+    # print(pointer)
     channel_state = state[0, :, 0]
     channel_state_avg = np.mean(channel_state)
     amended_pointer = copy.deepcopy(pointer)
+    if type(amended_pointer) == np.ndarray:
+        amended_pointer = amended_pointer.tolist()
+    # amended_pointer = []
+    # if len(pointer)>0:
+    #     for i in range(len(pointer)):
+    #         amended_pointer.append(pointer[i])
     amended_itr = itr_num
+
     for i in range(len(channel_state)):
         if (channel_state[i] >= channel_state_avg) and (i not in pointer) and (random.random()<AMEND_RATE):
             amended_pointer.append(i)
         elif (channel_state[i] < channel_state_avg) and (i in pointer) and (random.random()<AMEND_RATE):
-            amended_pointer = amended_pointer.remove(i)
+            amended_pointer.remove(i)
     if random.random()<AMEND_RATE:
         amended_itr = math.ceil((len(amended_pointer)/len(channel_state))/(1/4))
     return amended_itr, amended_pointer
@@ -224,33 +233,6 @@ class DDPG(object):
         self.learn_time = 0
         self.memory = []
 
-    def choose_action(self, state):
-        ss = torch.FloatTensor(state)
-
-        if use_gpu:
-            ss = ss.cuda()     
-        # print(ss)
-        itr_num, pointer, hidden_states = self.Actor_eval(ss)
-
-        if use_gpu:
-            itr_num = itr_num.cpu()
-            pointer = pointer.cpu()
-            hidden_states = hidden_states.cpu()
-        
-        itr_num = itr_num.detach().numpy()+1
-        pointer = pointer.detach().numpy()
-        count = 0
-        # print(pointer)
-        for i in range(len(pointer)):
-            if pointer[i] == len(pointer)-1:
-                count = i
-        if count == 0:
-            pointer = []
-        else:
-            pointer = pointer[0: count]
-        hidden_states = hidden_states.detach().numpy()
-
-        return itr_num, pointer, hidden_states
 
     def choose_action(self, state):
         ss = torch.FloatTensor(state)
@@ -279,7 +261,7 @@ class DDPG(object):
         hidden_states = hidden_states.detach().numpy()
         # ================================================================================================
         # # Amender
-        itr_num, pointer = Amender(itr_num, pointer, state)
+        # itr_num, pointer = Amender(itr_num, pointer, state)
         # ================================================================================================      
         
         return itr_num, pointer, hidden_states
