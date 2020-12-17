@@ -3,6 +3,8 @@ import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import math
+import copy
 # import config
 # import convlstm
 import PointerNet
@@ -30,6 +32,19 @@ MAXIMUM_CLIENT_NUM_PLUS_ONE = config.MAXIMUM_CLIENT_NUM_PLUS_ONE
 # _, last_states = convlstm(y)
 # h = last_states[0][0]  # 0 for layer index, 0 for h index
 # print(h.shape)
+
+
+def Amender(itr_num, pointer, state):
+    channel_state = state[0, :, 0]
+    channel_state_avg = np.mean(channel_state)
+    amended_pointer = copy.deepcopy(pointer)
+    for i in range(len(channel_state)):
+        if channel_state[i] >= channel_state_avg and i not in pointer:
+            amended_pointer.append(i)
+        elif channel_state[i] < channel_state_avg and i in pointer:
+            amended_pointer = amended_pointer.remove(i)
+    amended_itr = math.ceil((len(amended_pointer)/len(channel_state))/(1/4))
+    return amended_itr, amended_pointer
 
 class ANet(nn.Module):
     def __init__(self, max_itr_num, embedding_dimension, hidden_dimension, lstm_layers_num):
@@ -207,9 +222,6 @@ class DDPG(object):
         self.learn_time = 0
         self.memory = []
 
-
-
-
     def choose_action(self, state):
         ss = torch.FloatTensor(state)
 
@@ -265,9 +277,9 @@ class DDPG(object):
         hidden_states = hidden_states.detach().numpy()
         # ================================================================================================
         # # Amender
-        # if pointer == []:
-        #     pointer = [0]
+        itr_num, pointer = Amender(itr_num, pointer, state)
         # ================================================================================================      
+        
         return itr_num, pointer, hidden_states
         
 

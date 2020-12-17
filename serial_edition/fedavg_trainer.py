@@ -5,6 +5,7 @@ import torch
 import numpy as np
 import wandb
 import time
+import math
 from client import Client
 from config import *
 # ************************************************************************************************************ #
@@ -105,7 +106,9 @@ class FedAvgTrainer(object):
         while np.sum(res_weight * channel_res * res_ratio / tmp_t) > 1:
             tmp_t += 1
 
-        self.time_counter += tmp_t
+        # self.time_counter += tmp_t
+        self.time_counter += math.ceil(TIME_COMPRESSION_RATIO*tmp_t)
+
         logger.debug("time_counter after tx_time: {}".format(self.time_counter))
 # ************************************************************************************************************ #
 
@@ -157,7 +160,7 @@ class FedAvgTrainer(object):
             # change to the newly defined client_sampling function.
             # client_indexes, local_itr = self.client_sampling()
             # contribute to time counter
-            self.tx_time(client_indexes)
+            self.tx_time(client_indexes) # transmit time
             logger.info("client_indexes = " + str(client_indexes))
             csv_writer1_line.append(str(client_indexes))
 # ************************************************************************************************************ #
@@ -247,7 +250,7 @@ class FedAvgTrainer(object):
 
             # update the time counter
             if time_interval_lst:
-                self.time_counter += sum(time_interval_lst) * timing_ratio / len(time_interval_lst)
+                self.time_counter += math.ceil(TIME_COMPRESSION_RATIO*(sum(time_interval_lst) * timing_ratio / len(time_interval_lst)))
             logger.debug("time_counter after training: {}".format(self.time_counter))
             csv_writer1_line.append(self.time_counter-csv_writer1_line[1])
             csv_writer1_line.append(np.var(local_loss_lst))
@@ -260,7 +263,7 @@ class FedAvgTrainer(object):
                         w_glob[key] = torch.rand(w_glob[key].size())
                     counting_days = 0
                 else:
-                    counting_days += 1
+                    counting_days += 1                
                 self.time_counter = 0
 
             # set the time_counter 

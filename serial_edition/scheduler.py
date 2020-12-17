@@ -69,7 +69,7 @@ class Reward:
         # float(np.matmul(FPF,(loss_locals.T)))
         Reward = ALPHA*(self.F_r_last-self.F_r)/(time_length*self.F_r)+BETA*float(np.matmul(FPF,(loss_locals.T))/np.sum(selection)-np.sum(FPF)/M)
         self.F_r_last = self.F_r
-        Reward = 10*Reward
+        Reward = 1000000*Reward
         return Reward
         
 class Environment:
@@ -95,6 +95,10 @@ class Environment:
                 channel_state[0, i] = 1/Distance[i]
             available_car[0, i] = cars[i]
         return channel_state, available_car
+
+    
+
+
 
 class Scheduler_MPN:
     def __init__(self):
