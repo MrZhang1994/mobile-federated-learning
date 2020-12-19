@@ -1,0 +1,7 @@
+# ignore running results
+serial_edition/result
+serial_edition/runs
+serial_edition/__pycache__
+serial_edition/wandb
+# ignore .vscode
+.vscode/
