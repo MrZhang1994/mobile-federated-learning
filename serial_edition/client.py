@@ -100,6 +100,8 @@ class Client:
     def local_test(self, model_global, b_use_test_dataset=False):
         model_global.eval()
         model_global.to(self.device)
+        # print("fedavg:")
+        # print(model_global)
         metrics = { 
             'test_correct': 0, 
             'test_loss' : 0, 
@@ -114,6 +116,7 @@ class Client:
         with torch.no_grad():
             for batch_idx, (x, target) in enumerate(test_data):
                 x = x.to(self.device)
+
                 target = target.to(self.device)
                 pred = model_global(x)
                 loss = self.criterion(pred, target)

@@ -17,7 +17,8 @@ LR_C = config.LR_C                          # learning rate for critic
 GAMMA = config.GAMMA                        # reward discount
 TAU = config.TAU                            # soft replacement
 use_gpu = config.use_gpu                    # use GPU or not
-
+device = torch.device("cuda:" + str(1) if torch.cuda.is_available() else "cpu")
+print(device)
 # Parameters for multi-layer PointerNetwork
 FEATURE_DIMENSION = config.FEATURE_DIMENSION
 MAXIMUM_CLIENT_NUM_PLUS_ONE = config.MAXIMUM_CLIENT_NUM_PLUS_ONE
@@ -90,14 +91,19 @@ class ANet(nn.Module):
         itr = torch.ones((1,state.shape[1],1))
         eof = torch.zeros((1,1,FEATURE_DIMENSION))
         state_list = []
-        for i in range(self.max_itr_num):
 
+        if use_gpu:
+            itr = itr.to(device) 
+            eof = eof.to(device) 
+
+        for i in range(self.max_itr_num):
             state_list.append(torch.cat((state, (i+1)*itr), dim = 2))
             state_list[i] = torch.cat((state_list[i], eof), dim = 1)
 
         outputs = []
         pointers = []
         hidden_states = []
+
 
         for j in range(self.max_itr_num):
             output, pointer, hidden_state = self.pointer_network_layer1[j](state_list[j])
@@ -109,6 +115,8 @@ class ANet(nn.Module):
         outputs = torch.unsqueeze(outputs, dim = 0)
 
         output_60 = torch.zeros((1,self.max_itr_num,MAXIMUM_CLIENT_NUM_PLUS_ONE))
+        if use_gpu:
+            output_60 = output_60.to(device) 
         output_60[:,:,0:outputs.size(2)] = outputs
 
         output2, pointer2, hidden_state2 = self.pointer_network_layer2(output_60)
@@ -158,6 +166,9 @@ class CNet(nn.Module):
 
         itr = torch.ones((1,state.shape[1],1))
         eof = torch.zeros((1,1,FEATURE_DIMENSION))
+        if use_gpu:
+            itr = itr.to(device) 
+            eof = eof.to(device) 
         state_list = []
         for i in range(self.max_itr_num):
             # print(state.shape)
@@ -179,6 +190,8 @@ class CNet(nn.Module):
         outputs = torch.unsqueeze(outputs, dim = 0)
 
         output_60 = torch.zeros((1,self.max_itr_num,MAXIMUM_CLIENT_NUM_PLUS_ONE))
+        if use_gpu:
+            output_60 = output_60.to(device) 
         output_60[:, :, 0:outputs.size(2)] = outputs
 
         output2, pointer2, hidden_state2 = self.pointer_network_layer2(output_60)
@@ -223,25 +236,68 @@ class DDPG(object):
         self.atrain = torch.optim.Adam(self.Actor_eval.parameters(), lr = LR_A)
         self.loss_td = nn.MSELoss()
         if use_gpu:
-            self.Actor_eval = self.Actor_eval.cuda()
-            self.Actor_target = self.Actor_target.cuda()
-            self.Critic_eval = self.Critic_eval.cuda()
-            self.Critic_target = self.Critic_target.cuda()
-            self.loss_td = self.loss_td.cuda()
+            self.Actor_eval = self.Actor_eval.to(device)
+            self.Actor_target = self.Actor_target.to(device)
+            self.Critic_eval = self.Critic_eval.to(device)
+            self.Critic_target = self.Critic_target.to(device)
+            for i in range(self.Actor_eval.max_itr_num):
+                self.Actor_eval.pointer_network_layer1[i] = self.Actor_eval.pointer_network_layer1[i].to(device)
+                self.Actor_target.pointer_network_layer1[i] = self.Actor_target.pointer_network_layer1[i].to(device)
+                self.Critic_eval.pointer_network_layer1[i] = self.Critic_eval.pointer_network_layer1[i].to(device)
+                self.Critic_target.pointer_network_layer1[i] = self.Critic_target.pointer_network_layer1[i].to(device)
+            self.loss_td = self.loss_td.to(device)
 
         self.pointer = 0
         self.learn_time = 0
         self.memory = []
 
 
-    def choose_action(self, state):
+    def choose_action_withAmender(self, state):
+        state = state.astype(np.float32)
         ss = torch.FloatTensor(state)
 
         if use_gpu:
-            ss = ss.cuda()     
+            ss = ss.to(device)   
         # print(ss)
         itr_num, pointer, hidden_states = self.Actor_eval(ss)
+        # print("MPN:")
+        # print(itr_num)
+        # print(pointer)
+        if use_gpu:
+            itr_num = itr_num.cpu()
+            pointer = pointer.cpu()
+            hidden_states = hidden_states.cpu()
+        
+        itr_num = itr_num.detach().numpy()+1
+        pointer = pointer.detach().numpy()
+        count = 0
+        # print(pointer)
+        for i in range(len(pointer)):
+            if pointer[i] == len(pointer)-1:
+                count = i
+        if count == 0:
+            pointer = []
+        else:
+            pointer = pointer[0: count]
+        hidden_states = hidden_states.detach().numpy()
+        # ================================================================================================
+        # # Amender
+        itr_num, pointer = Amender(itr_num, pointer, state)
+        # ================================================================================================      
+        
+        return itr_num, pointer, hidden_states
+        
+    def choose_action(self, state):
+        state = state.astype(np.float32)
+        ss = torch.FloatTensor(state)
 
+        if use_gpu:
+            ss = ss.to(device)   
+        # print(ss)
+        itr_num, pointer, hidden_states = self.Actor_eval(ss)
+        # print("MPN:")
+        # print(itr_num)
+        # print(pointer)
         if use_gpu:
             itr_num = itr_num.cpu()
             pointer = pointer.cpu()
@@ -265,8 +321,6 @@ class DDPG(object):
         # ================================================================================================      
         
         return itr_num, pointer, hidden_states
-        
-
     def learn(self):
 
         self.learn_time += 1
@@ -282,7 +336,7 @@ class DDPG(object):
         # print(bt)
         bs = torch.FloatTensor(bt[0].astype(np.float32))
         bitr_num = torch.FloatTensor([bt[1][0].astype(np.float32)])
-        bpointer = torch.FloatTensor(bt[1][1])
+        # bpointer = torch.FloatTensor(bt[1][1])
         bhidden_states = torch.FloatTensor(bt[1][2].astype(np.float32))
         br = torch.FloatTensor(bt[2])
         bs_ = torch.FloatTensor(bt[3].astype(np.float32))
@@ -296,12 +350,12 @@ class DDPG(object):
 
 
         if use_gpu:
-            bs = bs.cuda()
-            bitr_num = bitr_num.cuda()
-            bpointer = bpointer.cuda()
-            bhidden_states = bhidden_states.cuda()
-            br = br.cuda()
-            bs_ = bs_.cuda()
+            bs = bs.to(device) 
+            bitr_num = bitr_num.to(device) 
+            # bpointer = bpointer.to(device) 
+            bhidden_states = bhidden_states.to(device) 
+            br = br.to(device) 
+            bs_ = bs_.to(device) 
 
         # print(bs)
         # print(list(bs.size()))
@@ -354,7 +408,7 @@ class DDPG(object):
         torch.save(self.Critic_eval.state_dict(), path+'/Critic_eval.pkl')
         torch.save(self.Critic_target.state_dict(), path+'/Critic_target.pkl')
         if use_gpu:
-            self.Actor_eval = self.Actor_eval.cuda()
-            self.Actor_target = self.Actor_target.cuda()
-            self.Critic_eval = self.Critic_eval.cuda()
-            self.Critic_target = self.Critic_target.cuda() 
+            self.Actor_eval = self.Actor_eval.to(device) 
+            self.Actor_target = self.Actor_target.to(device) 
+            self.Critic_eval = self.Critic_eval.to(device) 
+            self.Critic_target = self.Critic_target.to(device) 

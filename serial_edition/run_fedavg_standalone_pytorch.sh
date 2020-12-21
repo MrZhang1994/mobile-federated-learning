@@ -26,6 +26,8 @@ METHOD=$12
 
 VERBOSE=$13 #-v
 
+# alias python=CUDA_VISIBLE_DEVICES=1 /opt/conda/bin/python
+
 if [ $METHOD = "all" ]; then
     python3 ./main_fedavg.py \
     --gpu $GPU \

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn import Parameter
 import torch.nn.functional as F
-
+torch.cuda.set_device(1)
 
 class Encoder(nn.Module):
     """

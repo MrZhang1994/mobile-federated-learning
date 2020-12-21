@@ -51,16 +51,19 @@ class Reward:
         # loss_local: 1*M array
         # selection: 1*M array, binary
         # FPF: 1*M
-        if np.sum(selection) == 0:
-            return 0
-        ALPHA = 1
-        BETA = 1
-        M = len(loss_locals[0])
+        #===============================================
+        # M = len(loss_locals[0])
         # print(M)
         # print(selection)
         # print(loss_locals)
         # print((selection))
         # print((loss_locals.T).shape)
+        if np.sum(selection) == 0:
+            return 0
+        ALPHA = 1
+        BETA = 1
+        M = len(loss_locals[0])
+
         self.F_r = np.matmul(selection,loss_locals.T)/(np.sum(selection))
         # self.F_r = np.sum(loss_locals)/(np.sum(selection))
         
@@ -69,7 +72,7 @@ class Reward:
         # float(np.matmul(FPF,(loss_locals.T)))
         Reward = ALPHA*(self.F_r_last-self.F_r)/(time_length*self.F_r)+BETA*float(np.matmul(FPF,(loss_locals.T))/np.sum(selection)-np.sum(FPF)/M)
         self.F_r_last = self.F_r
-        Reward = 1000000*Reward
+        Reward = 100000*Reward
         return Reward
         
 class Environment:
@@ -186,9 +189,11 @@ class Scheduler_MPN:
                 FPF[0, int(pointer[i])] = FPF_idx_lst[int(self.available_car[0, int(pointer[i])])]
                 loss_local[0, int(pointer[i])] = loss_locals[i]
         
-
+        # print(pointer)
+        # print(selection[0])
         time_length = time_counter - self.time_counter_last
         reward = self.rwd.calculate_reward(loss_local, selection, FPF, time_length)
+        # print(reward)
         # ================================================================================================
         # update state
         channel_state, self.available_car = self.env.update(time_counter)
@@ -215,29 +220,27 @@ class Scheduler_MPN:
             loss = [loss_a, td_error]
         # ================================================================================================
         # produce action and mes
-        itr_num, pointer, hidden_states = self.agent.choose_action(state)
+        if round_idx<100:
+            itr_num, pointer, hidden_states = self.agent.choose_action_withAmender(state)
+        else:
+            itr_num, pointer, hidden_states = self.agent.choose_action(state)
         csv_writer2_line.append(str(pointer))
         client_indexes = []
         if len(pointer) != 0:
             for i in range(len(pointer)):
                 client_indexes.append(int(self.available_car[0, pointer[i]]))
-        local_itr = itr_num
+        local_itr = itr_num    
+        # ================================================================================================
+        # record action,state,time_counter
+        self.action_last = [itr_num, pointer, hidden_states]
+        self.state_last = state
+        self.time_counter_last = time_counter
         csv_writer2_line.append(str(client_indexes))
         csv_writer2_line.append(local_itr)
         csv_writer2_line.append(reward)
         csv_writer2.writerow(csv_writer2_line+loss)
+
         return client_indexes, local_itr
-        # s_client_indexes = str(list(client_indexes))[1:-1].replace(',', '')
-        # s_local_itr = str(local_itr)                
-        # # ================================================================================================
-        # # record action,state,time_counter
-        # self.action_last = [itr_num, pointer, hidden_states]
-        # self.state_last = state
-        # self.time_counter_last = time_counter
-
-        # return s_client_indexes + "," + s_local_itr
-
-
 
 
 def sch_random(round_idx, time_counter, csv_writer2):

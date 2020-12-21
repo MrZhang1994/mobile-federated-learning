@@ -20,7 +20,7 @@ import scheduler
 # ************************************************************************************************************ #
 
 # ************************************************************************************************************ #
-sys.path.insert(0, os.path.abspath("/home/zzp1012/FedML")) # add the root dir of FedML
+sys.path.insert(0, os.path.abspath("/csh/mobile-FL/FedML-master")) # add the root dir of FedML
 # ************************************************************************************************************ #
 
 from fedml_api.data_preprocessing.cifar10.data_loader import load_partition_data_cifar10
@@ -246,11 +246,13 @@ if __name__ == "__main__":
     para_record1 = open(path+'/trainer_'+str(args.method)[4:]+'_'+DAY+'_'+Time+'.csv', 'w', encoding='utf-8', newline='')
     csv_writer1 = csv.writer(para_record1)
     csv_writer1.writerow(['round index', 'time counter', 'client index', 'train time', 'fairness', 'local loss', 'global loss', 'test accuracy'])
+    
     para_record2 = open(path+'/scheduler_'+str(args.method)[4:]+'_'+DAY+'_'+Time+'.csv', 'w', encoding='utf-8', newline='')
     csv_writer2 = csv.writer(para_record2)
-    # csv_writer2.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'loss_a', 'loss_c'])
+    
     para_record3 = open(path+'/FPF_'+str(args.method)[4:]+'_'+DAY+'_'+Time+'.csv', 'w', encoding='utf-8', newline='')
     csv_writer3 = csv.writer(para_record3)
+    
     list_a = ['time counter']
     for i in range(client_num_in_total):
         list_a.append("car_"+str(i))

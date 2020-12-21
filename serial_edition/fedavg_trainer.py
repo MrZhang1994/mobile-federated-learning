@@ -114,6 +114,9 @@ class FedAvgTrainer(object):
 
     def train(self, scheduler, method, csv_writer1, csv_writer2, csv_writer3):
 # ************************************************************************************************************ #
+        # print(csv_writer1)
+        # print(csv_writer2)
+        # print(csv_writer3)
         # Initialize values
         local_itr_lst = np.zeros((1, self.args.comm_round)) # historical local iterations.
         client_selec_lst = np.zeros((self.args.comm_round, int(client_num_in_total))) # historical client selections.
@@ -211,22 +214,22 @@ class FedAvgTrainer(object):
                 loss_list.append(loss)
 
 # ************************************************************************************************************ #     
-            # calculate FPF1 index.
-            def FPF1_cal(local_w_lst):
-                def FPF1_norm_sum(w):
-                    norm_sum = 0
-                    for para in w.keys():
-                        norm_sum += torch.norm(w[para] - last_w[para])
-                    return norm_sum
+            # # calculate FPF1 index.
+            # def FPF1_cal(local_w_lst):
+            #     def FPF1_norm_sum(w):
+            #         norm_sum = 0
+            #         for para in w.keys():
+            #             norm_sum += torch.norm(w[para] - last_w[para])
+            #         return norm_sum
                 
-                norm_sum = np.reshape(np.array(list(map(FPF1_norm_sum, local_w_lst))), (1, -1))
-                # return FPF1 index list
-                res = norm_sum / np.dot(local_itr_lst, client_selec_lst)
-                res[np.bitwise_or(np.isnan(res), np.isinf(res))] = 0
-                return res
+            #     norm_sum = np.reshape(np.array(list(map(FPF1_norm_sum, local_w_lst))), (1, -1))
+            #     # return FPF1 index list
+            #     res = norm_sum / np.dot(local_itr_lst, client_selec_lst)
+            #     res[np.bitwise_or(np.isnan(res), np.isinf(res))] = 0
+            #     return res
 
-            # update FPF index list
-            FPF1_idx_lst = FPF1_cal(local_w_lst)
+            # # update FPF index list
+            # FPF1_idx_lst = FPF1_cal(local_w_lst)
             # csv_writer3.writerow([self.time_counter]+FPF1_idx_lst[0].tolist())
             # calculate FPF2 index.
             def FPF2_cal(local_w_lst):
@@ -243,7 +246,7 @@ class FedAvgTrainer(object):
 
             # update FPF index list
             FPF2_idx_lst = FPF2_cal(local_w_lst)
-            csv_writer3.writerow([" "]+FPF2_idx_lst[0].tolist())
+            csv_writer3.writerow([self.time_counter]+FPF2_idx_lst[0].tolist())
 # ************************************************************************************************************ #
             # update global weights
             w_glob = self.aggregate(w_locals)
@@ -293,8 +296,10 @@ class FedAvgTrainer(object):
             if round_idx % self.args.frequency_of_the_test == 0 or round_idx == self.args.comm_round - 1:
                 test_acc = self.local_test_on_all_clients(self.model_global, round_idx)
                 csv_writer1_line.append(test_acc)
-
+            # print("csv_writer1 write time!")
+            # print(csv_writer1_line)
             csv_writer1.writerow(csv_writer1_line)
+            # print("csv_writer1 write over!")
 
     def aggregate(self, w_locals):
 # ************************************************************************************************************ #

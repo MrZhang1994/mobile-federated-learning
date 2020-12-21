@@ -61,8 +61,8 @@ LR_A = 0.01         # learning rate for actor
 LR_C = 0.001        # learning rate for critic
 GAMMA = 0.9         # reward discount
 TAU = 0.01          # soft replacement
-use_gpu = False     # use GPU or not
-AMEND_RATE = 0.2
+use_gpu = False      # use GPU or not
+AMEND_RATE = 1
 # ==========================
 # Parameters for multi-layer PointerNetwork
 # ==========================
