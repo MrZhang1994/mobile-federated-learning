@@ -56,6 +56,7 @@ def Amender(itr_num, pointer, state):
             amended_pointer.remove(i)
     if random.random()<AMEND_RATE:
         amended_itr = math.ceil((len(amended_pointer)/len(channel_state))/(1/4))
+    amended_itr = np.array(amended_itr)
     return amended_itr, amended_pointer
 
 class ANet(nn.Module):
