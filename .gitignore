@@ -5,3 +5,4 @@ serial_edition/__pycache__
 serial_edition/wandb
 # ignore .vscode
 .vscode/
+serial_edition/FedML

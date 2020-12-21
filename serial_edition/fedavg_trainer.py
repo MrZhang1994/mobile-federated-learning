@@ -392,11 +392,13 @@ class FedAvgTrainer(object):
         test_recall = sum(test_metrics['recalls']) / sum(test_metrics['num_samples'])
 
         if self.args.dataset == "stackoverflow_lr":
-            stats = {'training_acc': train_acc, 'training_precision': train_precision, 'training_recall': train_recall, 'training_loss': train_loss}
-            wandb.log({"Train/Acc": train_acc, "round": round_idx})
-            wandb.log({"Train/Pre": train_precision, "round": round_idx})
-            wandb.log({"Train/Rec": train_recall, "round": round_idx})
-            wandb.log({"Train/Loss": train_loss, "round": round_idx})
+            stats = {"Train/Acc": train_acc,
+                     "Train/Pre": train_precision,
+                     "Train/Rec": train_recall,
+                     "Train/Loss": train_loss,
+                     "round": round_idx,
+                     "time_counter": self.time_counter}
+            wandb.log(stats)
 
             boardX.add_scalar("Train/Acc", train_acc, round_idx)
             boardX.add_scalar("Train/Pre", train_precision, round_idx)
@@ -405,11 +407,13 @@ class FedAvgTrainer(object):
 
             logger.info(stats)
 
-            stats = {'test_acc': test_acc, 'test_precision': test_precision, 'test_recall': test_recall, 'test_loss': test_loss}
-            wandb.log({"Test/Acc": test_acc, "round": round_idx})
-            wandb.log({"Test/Pre": test_precision, "round": round_idx})
-            wandb.log({"Test/Rec": test_recall, "round": round_idx})
-            wandb.log({"Test/Loss": test_loss, "round": round_idx})
+            stats = {"Test/Acc": test_acc,
+                     "Test/Pre": test_precision,
+                     "Test/Rec": test_recall,
+                     "Test/Loss": test_loss,
+                     "round": round_idx,
+                     "time_counter": self.time_counter}
+            wandb.log(stats)
 
             boardX.add_scalar("Test/Acc", test_acc, round_idx)
             boardX.add_scalar("Test/Pre", test_precision, round_idx)
@@ -419,18 +423,22 @@ class FedAvgTrainer(object):
             logger.info(stats)
 
         else:
-            stats = {'training_acc': train_acc, 'training_loss': train_loss}
-            wandb.log({"Train/Acc": train_acc, "round": round_idx})
-            wandb.log({"Train/Loss": train_loss, "round": round_idx})
+            stats = {"Train/Acc": train_acc,
+                     "Train/Loss": train_loss,
+                     "round": round_idx,
+                     "time_counter": self.time_counter}
+            wandb.log(stats)
 
             boardX.add_scalar("Train/Acc", train_acc, round_idx)
             boardX.add_scalar("Train/Loss", train_loss, round_idx)
 
             logger.info(stats)
 
-            stats = {'test_acc': test_acc, 'test_loss': test_loss}
-            wandb.log({"Test/Acc": test_acc, "round": round_idx})
-            wandb.log({"Test/Loss": test_loss, "round": round_idx})
+            stats = {"Test/Acc": test_acc,
+                     "Test/Loss": test_loss,
+                     "round": round_idx,
+                     "time_counter": self.time_counter}
+            wandb.log(stats)
 
             boardX.add_scalar("Test/Acc", test_acc, round_idx)
             boardX.add_scalar("Test/Loss", test_loss, round_idx)
