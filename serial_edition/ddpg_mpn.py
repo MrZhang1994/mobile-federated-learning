@@ -17,8 +17,8 @@ LR_C = config.LR_C                          # learning rate for critic
 GAMMA = config.GAMMA                        # reward discount
 TAU = config.TAU                            # soft replacement
 use_gpu = config.use_gpu                    # use GPU or not
-device = torch.device("cuda:" + str(1) if torch.cuda.is_available() else "cpu")
-print(device)
+device = torch.device("cuda:" + str(0) if torch.cuda.is_available() else "cpu")
+# print(device)
 # Parameters for multi-layer PointerNetwork
 FEATURE_DIMENSION = config.FEATURE_DIMENSION
 MAXIMUM_CLIENT_NUM_PLUS_ONE = config.MAXIMUM_CLIENT_NUM_PLUS_ONE
@@ -48,14 +48,13 @@ def Amender(itr_num, pointer, state):
     #     for i in range(len(pointer)):
     #         amended_pointer.append(pointer[i])
     amended_itr = itr_num
-
     for i in range(len(channel_state)):
         if (channel_state[i] >= channel_state_avg) and (i not in pointer) and (random.random()<AMEND_RATE):
             amended_pointer.append(i)
         elif (channel_state[i] < channel_state_avg) and (i in pointer) and (random.random()<AMEND_RATE):
             amended_pointer.remove(i)
     if random.random()<AMEND_RATE:
-        amended_itr = math.ceil((len(amended_pointer)/len(channel_state))/(1/4))
+        amended_itr = math.ceil(min(1, (len(amended_pointer)/40))/(1/4))
     amended_itr = np.array(amended_itr)
     return amended_itr, amended_pointer
 
@@ -252,7 +251,6 @@ class DDPG(object):
         self.learn_time = 0
         self.memory = []
 
-
     def choose_action_withAmender(self, state):
         state = state.astype(np.float32)
         ss = torch.FloatTensor(state)
@@ -336,7 +334,7 @@ class DDPG(object):
         bt = self.memory[indices]
         # print(bt)
         bs = torch.FloatTensor(bt[0].astype(np.float32))
-        bitr_num = torch.FloatTensor([bt[1][0].astype(np.float32)])
+        bitr_num = torch.FloatTensor((np.expand_dims(bt[1][0], axis=0)).astype(np.float32))
         # bpointer = torch.FloatTensor(bt[1][1])
         bhidden_states = torch.FloatTensor(bt[1][2].astype(np.float32))
         br = torch.FloatTensor(bt[2])
