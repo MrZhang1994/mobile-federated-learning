@@ -20,7 +20,7 @@ import scheduler
 # ************************************************************************************************************ #
 
 # ************************************************************************************************************ #
-sys.path.insert(0, os.path.abspath("/csh/mobile-FL/FedML-master")) # add the root dir of FedML
+sys.path.insert(0, os.path.abspath("/zzp/FedML")) # add the root dir of FedML
 # ************************************************************************************************************ #
 
 from fedml_api.data_preprocessing.cifar10.data_loader import load_partition_data_cifar10
@@ -225,24 +225,18 @@ def create_model(args, model_name, output_dim):
 if __name__ == "__main__":
     args = add_args(argparse.ArgumentParser(description='FedAvg-standalone'))
 
-    dt=datetime.now() #创建一个datetime类对象
+    dt=datetime.now()
     DAY =  str(dt.month).zfill(2)+str(dt.day).zfill(2)
     Time = str(dt.month).zfill(2)+str(dt.day).zfill(2)+'_'+str(dt.hour).zfill(2)+str(dt.minute).zfill(2)
     del dt
     path = 'result/'+DAY
     if os.path.exists(path) == False:
-        os.makedirs(path);
+        os.makedirs(path)
     path = path+'/'+str(args.method)[4:]+'_'+Time
     if os.path.exists(path) == False:
-        os.makedirs(path);
-        # os.makedirs(path+'/car_L1_reward_figure')
-        # os.makedirs(path+'/AdaptSpeed')
-        # os.makedirs(path+'/ConvergenceRate')
-        # os.makedirs(path+'/log')
-        # os.makedirs(path+'/result_images')
-        # os.makedirs(path+'/SystemPerformance')
-        # os.makedirs(path+'/code')
+        os.makedirs(path)
 
+    # initialize some csv_writers
     para_record1 = open(path+'/trainer_'+str(args.method)[4:]+'_'+DAY+'_'+Time+'.csv', 'w', encoding='utf-8', newline='')
     csv_writer1 = csv.writer(para_record1)
     csv_writer1.writerow(['round index', 'time counter', 'client index', 'train time', 'fairness', 'local loss', 'global loss', 'test accuracy'])
@@ -258,14 +252,12 @@ if __name__ == "__main__":
         list_a.append("car_"+str(i))
     csv_writer3.writerow(list_a)
 
-# ************************************************************************************************************ #
+    # if use debug mode.
     logger.setLevel(logging.DEBUG)
     if not args.verbose:
         logger.setLevel(logging.INFO)
     logger.debug("--------DEBUG enviroment start---------")
-# ************************************************************************************************************ #
     
-# ************************************************************************************************************ #
     # show the upate information
     logger.debug("-------global parameters setting-------")
     logger.debug("channel_data_dir {}".format(channel_data_dir))
@@ -275,14 +267,21 @@ if __name__ == "__main__":
     logger.debug("res_weight: {}".format(res_weight))
     logger.debug("res_ratio: {}".format(res_ratio))
     logger.debug("timing_ratio: {}".format(timing_ratio))
-# ************************************************************************************************************ #
 
     logger.debug("------ordinary parameter setting-------")
     logger.info(args)
-
-
-    device = torch.device("cuda:" + str(args.gpu) if torch.cuda.is_available() else "cpu")
+    
     logger.debug("---------cuda device setting-----------")
+    
+    # test if cuda GPU is avaiable.
+    if not torch.cuda.is_available():
+        logger.error("CPU is not avaiable. Use CPU now.")
+        device = torch.device("cpu")
+    elif args.gpu >= torch.cuda.device_count() or args.gpu < 0:
+        logger.error("Device " + str(args.gpu) + " is not avaiable. Use CPU now.")
+        device = torch.device("cpu")
+    else:
+        device = torch.device("cuda:" + str(args.gpu))  
     logger.debug(device)
 
     # Set the random seed. The np.random seed determines the dataset partition.
@@ -299,7 +298,6 @@ if __name__ == "__main__":
     # In this case, please use our FedML distributed version (./fedml_experiments/distributed_fedavg)
     model = create_model(args, model_name=args.model, output_dim=dataset[-1])
     logger.debug(model)
-    logger.debug("------------setting ends---------------")
 
 
     wandb.init(
@@ -307,17 +305,7 @@ if __name__ == "__main__":
         name="FedAVG-" + str(args.method)[4:] + "-r" + str(args.comm_round) + "-e" + str(args.epochs) + "-lr" + str(args.lr),
         config=args
     )
-
-# ************************************************************************************************************ #
-    # run scheduler in background.
-    # if not args.verbose:
-    #     os.system("python -u ./scheduler.py -m " + args.method + " &")
-    # else:
-    #     os.system("python -u ./scheduler.py -m " + args.method + " -v &")
-    # insert 1 seconds delay to make sure scheduler have alreadly been set up.
-    # time.sleep(5) 
-# ************************************************************************************************************ #
-    
+    logger.debug("------------setting ends---------------")
 
     if args.method == "sch_mpn":
         for _ in range(100):
@@ -337,4 +325,4 @@ if __name__ == "__main__":
         sch = scheduler.sch_random
 
     trainer = FedAvgTrainer(dataset, model, device, args)
-    trainer.train(sch, args.method, csv_writer1, csv_writer2, csv_writer3)
+    trainer.train(sch, args.method, csv_writer1, csv_writer2, csv_writer3) # pass new paras called sch and those csv_writers.

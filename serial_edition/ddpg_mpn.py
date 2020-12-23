@@ -17,8 +17,8 @@ LR_C = config.LR_C                          # learning rate for critic
 GAMMA = config.GAMMA                        # reward discount
 TAU = config.TAU                            # soft replacement
 use_gpu = config.use_gpu                    # use GPU or not
-device = torch.device("cuda:" + str(1) if torch.cuda.is_available() else "cpu")
-print(device)
+device = torch.device("cuda:" + str(0) if torch.cuda.is_available() else "cpu")
+# print(device)
 # Parameters for multi-layer PointerNetwork
 FEATURE_DIMENSION = config.FEATURE_DIMENSION
 MAXIMUM_CLIENT_NUM_PLUS_ONE = config.MAXIMUM_CLIENT_NUM_PLUS_ONE

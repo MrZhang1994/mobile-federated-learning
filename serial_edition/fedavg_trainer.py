@@ -1,4 +1,3 @@
-# ************************************************************************************************************ # newly added libraries
 import copy
 import socket
 import torch
@@ -8,14 +7,12 @@ import time
 import math
 from client import Client
 from config import *
-# ************************************************************************************************************ #
 
 
 class FedAvgTrainer(object):
     def __init__(self, dataset, model, device, args):
         self.device = device
         self.args = args
-
 # ************************************************************************************************************ #
         [client_num, train_data_num, test_data_num, train_data_global, test_data_global,
          train_data_local_num_dict, train_data_local_dict, test_data_local_dict, class_num] = dataset
@@ -37,7 +34,6 @@ class FedAvgTrainer(object):
 # ************************************************************************************************************ #
         # time counter starts from the first line
         self.time_counter = channel_data['Time'][0]
-# ************************************************************************************************************ #
 
     def setup_clients(self, train_data_local_num_dict, train_data_local_dict, test_data_local_dict):
         logger.debug("############setup_clients (START)#############")
@@ -46,51 +42,6 @@ class FedAvgTrainer(object):
                        train_data_local_num_dict[client_idx], self.args, self.device)
             self.client_list.append(c)
         logger.debug("############setup_clients (END)#############")
-
-# ************************************************************************************************************ # Simply setup a client to recieve the message from server.
-    def client_sampling(self):
-        # setup client
-        hostname = socket.gethostname()
-        client_socket = socket.socket()
-        client_socket.connect((hostname, 8999))
-
-        # send nothing
-        client_socket.sendall("nothing".encode())
-
-        # get response
-        response = client_socket.recv(1024).decode().split(',')
-
-        # close connection
-        client_socket.close()
-
-        # decode the message (string) into numbers and arraies.
-        client_indexes = []
-        local_itr = 1
-        if response[0] != '':
-            client_indexes = [int(float(i)) for i in response[0].split(' ')]
-        if response[1] != '':
-            local_itr = [int(float(i)) for i in response[1].split(' ')][0]
-
-        return client_indexes, local_itr
-# ************************************************************************************************************ #
-
-# ************************************************************************************************************ #
-    def feedback(self, loss_locals, FPF1_idx_lst, FPF2_idx_lst):
-        # setup client
-        hostname = socket.gethostname()
-        client_socket = socket.socket()
-        client_socket.connect((hostname, 8999))
-
-        # send time_counter & local_losses & FPF1_index & FPF2_index
-        message = str(self.time_counter) + ',' + str(loss_locals)[1:-1].replace(',', '') + ',' +  str(list(FPF1_idx_lst.ravel()))[1:-1].replace(',', '') + ',' +  str(list(FPF2_idx_lst.ravel()))[1:-1].replace(',', '')
-        client_socket.sendall(message.encode())
-
-        # get response
-        client_socket.recv(1024)
-
-        # close connection
-        client_socket.close()
-# ************************************************************************************************************ #
 
 # ************************************************************************************************************ #
     def tx_time(self, client_indexes):
@@ -110,13 +61,10 @@ class FedAvgTrainer(object):
         self.time_counter += math.ceil(TIME_COMPRESSION_RATIO*tmp_t)
 
         logger.debug("time_counter after tx_time: {}".format(self.time_counter))
-# ************************************************************************************************************ #
+
 
     def train(self, scheduler, method, csv_writer1, csv_writer2, csv_writer3):
 # ************************************************************************************************************ #
-        # print(csv_writer1)
-        # print(csv_writer2)
-        # print(csv_writer3)
         # Initialize values
         local_itr_lst = np.zeros((1, self.args.comm_round)) # historical local iterations.
         client_selec_lst = np.zeros((self.args.comm_round, int(client_num_in_total))) # historical client selections.
@@ -135,18 +83,17 @@ class FedAvgTrainer(object):
         G_mat = np.zeros((1, int(client_num_in_total))) # initial the value of G with zero
 # ************************************************************************************************************ #
         for round_idx in range(self.args.comm_round):
+            # csv_writer1 
             csv_writer1_line = []
             logger.info("################Communication round : {}".format(round_idx))
             logger.info("time_counter: {}".format(self.time_counter))
             csv_writer1_line.append(round_idx)
             csv_writer1_line.append(self.time_counter)
+
             self.model_global.train()
 # ************************************************************************************************************ #
             # update time counter on scheduler
-            
-            # self.feedback(loss_locals, FPF1_idx_lst, FPF2_idx_lst)
             # ================================================================================================
-            # print(FPF2_idx_lst)
             if method == "sch_mpn":
                 if round_idx == 0:
                     csv_writer2.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'reward', 'loss_a', 'loss_c'])
@@ -154,14 +101,10 @@ class FedAvgTrainer(object):
                 else:
                     client_indexes, local_itr = scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst[0], local_loss_lst, csv_writer2)
             else:
-                # csv_writer2.writerow(['time counter', 'available car', 'channel_state', 'client index', 'iteration'])
                 if round_idx == 0:
                     csv_writer2.writerow(['time counter', 'client index', 'iteration', 'reward'])
                 client_indexes, local_itr = scheduler(round_idx, self.time_counter, csv_writer2)
             # ================================================================================================
-            # time.sleep(0.5)
-            # change to the newly defined client_sampling function.
-            # client_indexes, local_itr = self.client_sampling()
             # contribute to time counter
             self.tx_time(client_indexes) # transmit time
             logger.info("client_indexes = " + str(client_indexes))
@@ -296,17 +239,14 @@ class FedAvgTrainer(object):
             if round_idx % self.args.frequency_of_the_test == 0 or round_idx == self.args.comm_round - 1:
                 test_acc = self.local_test_on_all_clients(self.model_global, round_idx)
                 csv_writer1_line.append(test_acc)
-            # print("csv_writer1 write time!")
-            # print(csv_writer1_line)
             csv_writer1.writerow(csv_writer1_line)
-            # print("csv_writer1 write over!")
+            
 
     def aggregate(self, w_locals):
 # ************************************************************************************************************ #
         if not w_locals:
             return self.model_global.cpu().state_dict()
 # ************************************************************************************************************ #
-
         training_num = 0
         for idx in range(len(w_locals)):
             (sample_num, averaged_params) = w_locals[idx]
