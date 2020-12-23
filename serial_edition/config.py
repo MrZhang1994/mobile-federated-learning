@@ -5,11 +5,11 @@ from tensorboardX import SummaryWriter
 
 # set the data dir
 channel_data_dir = "../data"
+date_length = 10
 # read channel data at once.
-channel_data = pd.concat([pd.read_csv(os.path.join(channel_data_dir, csv_name)
-				     # error_bad_lines=False
-				     ) for csv_name in os.listdir(channel_data_dir)], ignore_index = True)
-
+channel_data = pd.concat([pd.read_csv(channel_data_dir+'/'+str(csv_name)+'.csv'
+                     # error_bad_lines=False
+                     ) for csv_name in range(1001, 1001+date_length)], ignore_index = True)
 # restrict the number of client_num_in_total to maxmium car ID + 1
 client_num_in_total = channel_data['Car'].max() + 1
 client_num_per_round = 100 # number of local clients
