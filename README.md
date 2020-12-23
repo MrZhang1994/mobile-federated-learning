@@ -11,23 +11,19 @@
 
 ## Experimental Tracking Platform 
 
-1. report real-time result to wandb.com, please change ID to your own
-    ```
-    wandb login `Your ID`
-    ```
+report real-time result to wandb.com, please change ID to your own
+
+```
+wandb login `Your ID`
+```
 
 ## Experiment Scripts
 
-1. Before any experiments, remember to kill any process occupying port 8999. Simply, you can run the following script:
-    ```bash
-    lsof -i:8999 # this instruction could show the PID of the process occupying port 8999
-    kill PID
-    ```
+To test whether program are correctly configured, you can run following commands to see whether training process starts correctly.
 
-2. To test whether program are correctly configured, you can run following commands to see whether training process starts correctly.
-    ```
-    sh begin.sh
-    ```
+```
+sh begin.sh
+```
 
 Or, you can try other heterogeneous distribution (Non-IID) experiment:
 ``` 
