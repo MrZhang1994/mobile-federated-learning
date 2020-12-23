@@ -14,7 +14,6 @@ class FedAvgTrainer(object):
     def __init__(self, dataset, model, device, args):
         self.device = device
         self.args = args
-
         [client_num, train_data_num, test_data_num, train_data_global, test_data_global,
          train_data_local_num_dict, train_data_local_dict, test_data_local_dict, class_num] = dataset
         # record the client number of the dataset
@@ -36,7 +35,6 @@ class FedAvgTrainer(object):
         # time counter starts from the first line
         self.time_counter = channel_data['Time'][0]
 
-
     def setup_clients(self, train_data_local_num_dict, train_data_local_dict, test_data_local_dict):
         logger.debug("############setup_clients (START)#############")
         for client_idx in range(client_num_per_round):
@@ -44,7 +42,6 @@ class FedAvgTrainer(object):
                        train_data_local_num_dict[client_idx], self.args, self.device)
             self.client_list.append(c)
         logger.debug("############setup_clients (END)#############")
-
 
     def tx_time(self, client_indexes):
         if not client_indexes:
@@ -102,7 +99,6 @@ class FedAvgTrainer(object):
                 else:
                     client_indexes, local_itr = scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst[0], local_loss_lst, csv_writer2)
             else:
-                # csv_writer2.writerow(['time counter', 'available car', 'channel_state', 'client index', 'iteration'])
                 if round_idx == 0:
                     csv_writer2.writerow(['time counter', 'client index', 'iteration', 'reward'])
                 client_indexes, local_itr = scheduler(round_idx, self.time_counter, csv_writer2)

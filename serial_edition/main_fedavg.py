@@ -222,11 +222,12 @@ if __name__ == "__main__":
     del dt
     path = 'result/'+DAY
     if os.path.exists(path) == False:
-        os.makedirs(path);
+        os.makedirs(path)
     path = path+'/'+str(args.method)[4:]+'_'+Time
     if os.path.exists(path) == False:
         os.makedirs(path);
 
+    # initialize some csv_writers
     para_record1 = open(path+'/trainer_'+str(args.method)[4:]+'_'+DAY+'_'+Time+'.csv', 'w', encoding='utf-8', newline='')
     csv_writer1 = csv.writer(para_record1)
     csv_writer1.writerow(['round index', 'time counter', 'client index', 'train time', 'fairness', 'local loss', 'global loss', 'test accuracy'])
@@ -278,7 +279,6 @@ if __name__ == "__main__":
     # In this case, please use our FedML distributed version (./fedml_experiments/distributed_fedavg)
     model = create_model(args, model_name=args.model, output_dim=dataset[-1])
     logger.debug(model)
-    logger.debug("------------setting ends---------------")
 
 
     wandb.init(
