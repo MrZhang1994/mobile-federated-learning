@@ -1,10 +1,9 @@
-# ************************************************************************************************************ # newly added libraries, to record the time interval
+# newly added libraries, to record the time interval
 import time
 import torch
 from torch import nn
 
 from config import logger
-# ************************************************************************************************************ #
 
 class Client:
 
@@ -38,12 +37,8 @@ class Client:
     def get_sample_number(self):
         return self.local_sample_number
 
-# ************************************************************************************************************ #
-    def train(self, net, local_iteration): # add a new parameter "local_iteration".
 
-# the following code is the code before the modification:
-    # def train(self, net):
-# ************************************************************************************************************ #
+    def train(self, net, local_iteration): # add a new parameter "local_iteration".
         net.train()
         # train and update
         if self.args.client_optimizer == "sgd":
@@ -52,50 +47,28 @@ class Client:
             optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=self.args.lr,
                                               weight_decay=self.args.wd, amsgrad=True)
 
-# ************************************************************************************************************ #
-        time_start = float(time.time()) # record the start training time
-# ************************************************************************************************************ #
-
+        # record the start training time
+        time_start = float(time.time()) 
+        # initial epoch loss
         epoch_loss = []
-    
-# ************************************************************************************************************ #
         for epoch in range(self.args.epochs * local_iteration): # epochs = epochs * local_itr
-
-# the following code is the code before the modification:
-        # for epoch in range(self.args.epochs):
-# ************************************************************************************************************ #
             batch_loss = []
             for batch_idx, (x, labels) in enumerate(self.local_training_data):
                 x, labels = x.to(self.device), labels.to(self.device)
-                # logging.info("x.size = " + str(x.size()))
-                # logging.info("labels.size = " + str(labels.size()))
                 net.zero_grad()
                 log_probs = net(x)
                 loss = self.criterion(log_probs, labels)
                 loss.backward()
-
-                # to avoid nan loss
-                # torch.nn.utils.clip_grad_norm_(net.parameters(), 0.5)
-
                 optimizer.step()
-                # logging.info('Update Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                #     epoch, (batch_idx + 1) * self.args.batch_size, len(self.local_training_data) * self.args.batch_size,
-                #            100. * (batch_idx + 1) / len(self.local_training_data), loss.item()))
                 batch_loss.append(loss.item())
             epoch_loss.append(sum(batch_loss) / len(batch_loss))
-            # logging.info('Client Index = {}\tEpoch: {}\tLoss: {:.6f}'.format(
-            #     self.client_idx, epoch, sum(epoch_loss) / len(epoch_loss)))
+            logging.debug('Client Index = {}\tEpoch: {}\tLoss: {:.6f}'.format(
+                self.client_idx, epoch, sum(epoch_loss) / len(epoch_loss)))
 
-# ************************************************************************************************************ #
-        time_end = float(time.time()) # record the end time
-# ************************************************************************************************************ #
+        # record the end time
+        time_end = float(time.time()) 
 
-# ************************************************************************************************************ #
         return net.cpu().state_dict(), sum(epoch_loss) / len(epoch_loss), (time_end - time_start) # add a new return value "time_interval"
-
-# the following code is the code before the modification:
-        # return net.cpu().state_dict(), sum(epoch_loss) / len(epoch_loss)
-# ************************************************************************************************************ #
 
     def local_test(self, model_global, b_use_test_dataset=False):
         model_global.eval()
