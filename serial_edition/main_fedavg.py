@@ -1,6 +1,5 @@
 # newly added libarary, to insert delay to the program.
 # system python package load.
-# from logging import log
 import argparse
 import logging
 import os, shutil
@@ -18,7 +17,8 @@ from fedavg_trainer import FedAvgTrainer
 from config import *
 import scheduler
 
-sys.path.insert(0, os.path.abspath("/csh/mobile-FL/FedML-master")) # add the root dir of FedML
+# add the root dir of FedML
+sys.path.insert(0, os.path.abspath("/csh/mobile-FL/FedML-master")) 
 
 from fedml_api.data_preprocessing.cifar10.data_loader import load_partition_data_cifar10
 from fedml_api.data_preprocessing.cifar100.data_loader import load_partition_data_cifar100
@@ -39,11 +39,12 @@ from fedml_api.model.nlp.rnn import RNN_OriginalFedAvg, RNN_StackOverFlow
 from fedml_api.model.linear.lr import LogisticRegression
 from fedml_api.model.cv.resnet_gn import resnet18
 
-def add_args(parser):
+def add_args():
     """
-    parser : argparse.ArgumentParser
     return a parser added with args required by fit
     """
+    parser = argparse.ArgumentParser(description='FedAvg-standalone')
+
     # Training settings
     parser.add_argument('--model', type=str, default='resnet56', metavar='N',
                         help='neural network used in training')
@@ -97,6 +98,14 @@ def add_args(parser):
 
 
 def load_data(args, dataset_name):
+    """
+    args: dict containing all program arguments.
+    dataset_name: the name of the dataset like MNIST.
+    return: dataset which contains [client_num, train_data_num, test_data_num, train_data_global, test_data_global,
+                                    train_data_local_num_dict, train_data_local_dict, test_data_local_dict, class_num]
+    """
+    logger.info("-------------dataset loading------------")
+
     # check if the full-batch training is enabled
     args_batch_size = args.batch_size
     if args.batch_size <= 0:
@@ -104,7 +113,6 @@ def load_data(args, dataset_name):
         args.batch_size = 128 # temporary batch size
     else:
         full_batch = False
-    logger.info("-------------dataset loading------------")
 
     if dataset_name == "mnist":
         logger.debug("load_data. dataset_name = %s" % dataset_name)
@@ -173,7 +181,12 @@ def load_data(args, dataset_name):
                train_data_local_num_dict, train_data_local_dict, test_data_local_dict, class_num]
     return dataset
 
+
 def combine_batches(batches):
+    """
+    batches: list containing (batched_x, batched_y)
+    return: combined batches or called full batch.
+    """
     full_x = torch.from_numpy(np.asarray([])).float()
     full_y = torch.from_numpy(np.asarray([])).long()
     for (batched_x, batched_y) in batches:
@@ -181,7 +194,14 @@ def combine_batches(batches):
         full_y = torch.cat((full_y, batched_y), 0)
     return [(full_x, full_y)]
 
+
 def create_model(args, model_name, output_dim):
+    """
+    args: dict containing all program arguments.
+    model_name: the name of the model, like CNN.
+    output_dim: the dimension of the output of the model.
+    return: model.
+    """
     logger.debug("-------------model setting-------------")
     logger.debug("create_model. model_name = %s, output_dim = %s" % (model_name, output_dim))
     model = None
@@ -213,10 +233,22 @@ def create_model(args, model_name, output_dim):
     return model
 
 
-if __name__ == "__main__":
-    args = add_args(argparse.ArgumentParser(description='FedAvg-standalone'))
+def main():
+    # get all the program arguments.
+    args = add_args()
 
-    dt=datetime.now() #
+    # Set the random seed. The np.random seed determines the dataset partition.
+    # The torch_manual_seed determines the initial weight.
+    # We fix these two, so that we can reproduce the result.
+    np.random.seed(0)
+    torch.manual_seed(10)
+
+    logger.setLevel(logging.DEBUG)
+    if not args.verbose:
+        logger.setLevel(logging.INFO)
+    logger.debug("--------DEBUG enviroment start---------")
+
+    dt=datetime.now()
     DAY =  str(dt.month).zfill(2)+str(dt.day).zfill(2)
     Time = str(dt.month).zfill(2)+str(dt.day).zfill(2)+'_'+str(dt.hour).zfill(2)+str(dt.minute).zfill(2)
     del dt
@@ -242,34 +274,28 @@ if __name__ == "__main__":
     for i in range(client_num_in_total):
         list_a.append("car_"+str(i))
     csv_writer3.writerow(list_a)
-
-    logger.setLevel(logging.DEBUG)
-    if not args.verbose:
-        logger.setLevel(logging.INFO)
-    logger.debug("--------DEBUG enviroment start---------")
     
     # show the upate information
     logger.debug("-------global parameters setting-------")
-    logger.debug("channel_data_dir {}".format(channel_data_dir))
-    logger.debug("client_num_in_total: {}".format(client_num_in_total))
-    logger.debug("client_num_in_total: {}".format(client_num_per_round))
-    logger.debug("bandwith: {}".format(bandwith))
-    logger.debug("res_weight: {}".format(res_weight))
-    logger.debug("res_ratio: {}".format(res_ratio))
-    logger.debug("timing_ratio: {}".format(timing_ratio))
+    logger.debug("RES_WEIGHT: {}".format(RES_WEIGHT))
+    logger.debug("RES_RATIO: {}".format(RES_RATIO))
+    logger.debug("G1: {}".format(G1))
+    logger.debug("G2: {}".format(G2))
+    logger.debug("RESTART_DAYS: {}".format(RESTART_DAYS))
+    logger.debug("TIME_COMPRESSION_RATIO: {}".format(TIME_COMPRESSION_RATIO))
 
     logger.debug("------ordinary parameter setting-------")
     logger.info(args)
 
+    # show other information
+    logger.debug("-----------Other information-----------")
+    logger.debug("channel_data_dir {}".format(channel_data_dir))
+    logger.debug("client_num_in_total: {}".format(client_num_in_total))
+    logger.debug("client_num_in_total: {}".format(client_num_per_round))
+
     logger.debug("---------cuda device setting-----------")
     device = torch.device("cuda:" + str(args.gpu) if torch.cuda.is_available() else "cpu")
     logger.debug(device)
-
-    # Set the random seed. The np.random seed determines the dataset partition.
-    # The torch_manual_seed determines the initial weight.
-    # We fix these two, so that we can reproduce the result.
-    np.random.seed(0)
-    torch.manual_seed(10)
 
     # load data
     dataset = load_data(args, args.dataset)
@@ -280,29 +306,15 @@ if __name__ == "__main__":
     model = create_model(args, model_name=args.model, output_dim=dataset[-1])
     logger.debug(model)
 
-
+    # initialize the wandb.
     wandb.init(
         project="fedavg",
         name="FedAVG-" + str(args.method)[4:] + "-r" + str(args.comm_round) + "-e" + str(args.epochs) + "-lr" + str(args.lr),
         config=args
     )
 
-    if args.method == "sch_mpn":
-        for _ in range(100):
-            sch = scheduler.Scheduler_MPN()
-            client_indexes, local_itr = sch.sch_mpn_test(1, 2002)
-            if len(client_indexes) > 5:
-                break
-    elif args.method == "sch_random":
-        sch = scheduler.sch_random
-    elif args.method == "sch_channel":
-        sch = scheduler.sch_channel
-    elif args.method == "sch_rrobin":
-        sch = scheduler.sch_rrobin
-    elif args.method == "sch_loss":
-        sch = scheduler.sch_loss
-    else:
-        sch = scheduler.sch_random
-
     trainer = FedAvgTrainer(dataset, model, device, args)
-    trainer.train(sch, args.method, csv_writer1, csv_writer2, csv_writer3)
+    trainer.train(csv_writer1, csv_writer2, csv_writer3)
+
+if __name__ == "__main__":
+    main()

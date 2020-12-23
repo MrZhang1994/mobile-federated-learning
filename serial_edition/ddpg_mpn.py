@@ -5,8 +5,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 import copy
-# import config
-# import convlstm
 import PointerNet
 import config
 
@@ -18,21 +16,10 @@ GAMMA = config.GAMMA                        # reward discount
 TAU = config.TAU                            # soft replacement
 use_gpu = config.use_gpu                    # use GPU or not
 device = torch.device("cuda:" + str(0) if torch.cuda.is_available() else "cpu")
-# print(device)
 # Parameters for multi-layer PointerNetwork
 FEATURE_DIMENSION = config.FEATURE_DIMENSION
 MAXIMUM_CLIENT_NUM_PLUS_ONE = config.MAXIMUM_CLIENT_NUM_PLUS_ONE
 AMEND_RATE = config.AMEND_RATE
-
-# x = torch.rand((32, 10, 1, 1, 1910))
-# xx = torch.zeros((32, 10, 1, 1, 2000))
-# xx[:,:,:,:,:1910] = x
-# y = xx.view(32, 10, 1, 40, 50)
-# # x = torch.rand((32, 10, 1, 50, 40))
-# convlstm = convlstm.ConvLSTM(input_dim = 1, hidden_dim = 1, kernel_size = (3,3), num_layers = 5, batch_first=True)
-# _, last_states = convlstm(y)
-# h = last_states[0][0]  # 0 for layer index, 0 for h index
-# print(h.shape)
 
 
 def Amender(itr_num, pointer, state):

@@ -35,6 +35,7 @@ class FedAvgTrainer(object):
         # time counter starts from the first line
         self.time_counter = channel_data['Time'][0]
 
+ 
     def setup_clients(self, train_data_local_num_dict, train_data_local_dict, test_data_local_dict):
         logger.debug("############setup_clients (START)#############")
         for client_idx in range(client_num_per_round):
@@ -42,6 +43,7 @@ class FedAvgTrainer(object):
                        train_data_local_num_dict[client_idx], self.args, self.device)
             self.client_list.append(c)
         logger.debug("############setup_clients (END)#############")
+
 
     def tx_time(self, client_indexes):
         if not client_indexes:
@@ -53,7 +55,7 @@ class FedAvgTrainer(object):
 
         # linearly resolve the optimazation problem
         tmp_t = 1
-        while np.sum(res_weight * channel_res * res_ratio / tmp_t) > 1:
+        while np.sum(RES_WEIGHT * channel_res * RES_RATIO / tmp_t) > 1:
             tmp_t += 1
 
         # self.time_counter += tmp_t
@@ -62,7 +64,7 @@ class FedAvgTrainer(object):
         logger.debug("time_counter after tx_time: {}".format(self.time_counter))
 
 
-    def train(self, scheduler, method, csv_writer1, csv_writer2, csv_writer3):
+    def train(self, csv_writer1, csv_writer2, csv_writer3):
         # Initialize values
         local_itr_lst = np.zeros((1, self.args.comm_round)) # historical local iterations.
         client_selec_lst = np.zeros((self.args.comm_round, int(client_num_in_total))) # historical client selections.
@@ -82,6 +84,24 @@ class FedAvgTrainer(object):
             A_mat[para] = np.ones(weight_shape) # initial the value of A with zero.
         G_mat = np.zeros((1, int(client_num_in_total))) # initial the value of G with zero
 
+        # initialize the scheduler function
+        if self.args.method == "sch_mpn":
+            for _ in range(100):
+                scheduler = scheduler.Scheduler_MPN()
+                client_indexes, local_itr = scheduler.sch_mpn_test(1, 2002)
+                if len(client_indexes) > 5:
+                    break
+        elif self.args.method == "sch_random":
+            scheduler = scheduler.sch_random
+        elif self.args.method == "sch_channel":
+            scheduler = scheduler.sch_channel
+        elif self.args.method == "sch_rrobin":
+            scheduler = scheduler.sch_rrobin
+        elif self.args.method == "sch_loss":
+            scheduler = scheduler.sch_loss
+        else:
+            scheduler = scheduler.sch_random
+
         for round_idx in range(self.args.comm_round):
             logger.info("################Communication round : {}".format(round_idx))
             logger.info("time_counter: {}".format(self.time_counter))
@@ -92,7 +112,7 @@ class FedAvgTrainer(object):
             
             self.model_global.train()
             
-            if method == "sch_mpn":
+            if self.args.method == "sch_mpn":
                 if round_idx == 0:
                     csv_writer2.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'reward', 'loss_a', 'loss_c'])
                     client_indexes, local_itr = scheduler.sch_mpn_initial(round_idx, self.time_counter, csv_writer2)
@@ -177,7 +197,7 @@ class FedAvgTrainer(object):
 
             # update the time counter
             if time_interval_lst:
-                self.time_counter += math.ceil(TIME_COMPRESSION_RATIO*(sum(time_interval_lst) * timing_ratio / len(time_interval_lst)))
+                self.time_counter += math.ceil(TIME_COMPRESSION_RATIO*(sum(time_interval_lst) / len(time_interval_lst)))
             logger.debug("time_counter after training: {}".format(self.time_counter))
             
             csv_writer1_line.append(self.time_counter-csv_writer1_line[1])
@@ -187,7 +207,7 @@ class FedAvgTrainer(object):
             # if current time_counter has exceed the channel table, I will simply stop early
             if self.time_counter >= channel_data["Time"].max():
                 logger.info("++++++++++++++schedualing restart++++++++++++++")
-                if counting_days == restart_days:
+                if counting_days == RESTART_DAYS:
                     for key in w_glob.keys():
                         w_glob[key] = torch.rand(w_glob[key].size())
                     counting_days = 0
@@ -222,6 +242,7 @@ class FedAvgTrainer(object):
             
             csv_writer1.writerow(csv_writer1_line)
 
+
     def aggregate(self, w_locals):
         if not w_locals:
             return self.model_global.cpu().state_dict()
@@ -240,6 +261,7 @@ class FedAvgTrainer(object):
                 else:
                     averaged_params[k] += local_model_params[k] * w
         return averaged_params
+
 
     def local_test_on_all_clients(self, model_global, round_idx):
         logger.info("################local_test_on_all_clients : {}".format(round_idx))

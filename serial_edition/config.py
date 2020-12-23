@@ -3,14 +3,6 @@ import pandas as pd
 import os
 from tensorboardX import SummaryWriter
 
-# set the requirement.
-bandwith = 1
-res_weight = 0.5
-res_ratio = 0.1 # the ratio of radio_res
-
-# the ratio of standalone training time over real distributed learning training time.
-timing_ratio = 1
-
 # set the data dir
 channel_data_dir = "../data"
 # read channel data at once.
@@ -32,23 +24,21 @@ logging.basicConfig(
 logger = logging.getLogger("training")
 
 # setup the tensorboardX
-
 boardX = SummaryWriter(comment="-fedavg")
 
+# ===============================
+# set hyperparameters for Trainer
+# ===============================
+# set the requirement.
+RES_WEIGHT = 0.5
+RES_RATIO = 0.1 # the ratio of radio_res
 # set hyperparameter for calculating FPF2 index
 G1 = 2
 G2 = 2
-
 # set the number of days until reinitialize the model
-restart_days = 1
-
-# ==========================
-# Parameters for trainer
-# ==========================
+RESTART_DAYS = 1
+# set the speed of the time_counter's increasing.
 TIME_COMPRESSION_RATIO = 0.1
-
-
-# Parameters for ddpg_mpn
 
 # ==========================
 # Parameters for ddpg
@@ -60,6 +50,7 @@ GAMMA = 0.9         # reward discount
 TAU = 0.01          # soft replacement
 use_gpu = False      # use GPU or not
 AMEND_RATE = 1
+
 # ==========================
 # Parameters for multi-layer PointerNetwork
 # ==========================
