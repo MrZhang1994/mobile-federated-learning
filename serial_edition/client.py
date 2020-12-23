@@ -28,11 +28,13 @@ class Client:
         else:
             self.criterion = nn.CrossEntropyLoss().to(device)
 
+
     def update_local_dataset(self, client_idx, local_training_data, local_test_data, local_sample_number):
         self.client_idx = client_idx
         self.local_training_data = local_training_data
         self.local_test_data = local_test_data
         self.local_sample_number = local_sample_number
+
 
     def get_sample_number(self):
         return self.local_sample_number
@@ -62,19 +64,19 @@ class Client:
                 optimizer.step()
                 batch_loss.append(loss.item())
             epoch_loss.append(sum(batch_loss) / len(batch_loss))
-            logging.debug('Client Index = {}\tEpoch: {}\tLoss: {:.6f}'.format(
+            logger.debug('Client Index = {}\tEpoch: {}\tLoss: {:.6f}'.format(
                 self.client_idx, epoch, sum(epoch_loss) / len(epoch_loss)))
 
         # record the end time
         time_end = float(time.time()) 
 
-        return net.cpu().state_dict(), sum(epoch_loss) / len(epoch_loss), (time_end - time_start) # add a new return value "time_interval"
+        # add a new return value "time_interval"
+        return net.cpu().state_dict(), sum(epoch_loss) / len(epoch_loss), (time_end - time_start) 
+
 
     def local_test(self, model_global, b_use_test_dataset=False):
         model_global.eval()
         model_global.to(self.device)
-        # print("fedavg:")
-        # print(model_global)
         metrics = { 
             'test_correct': 0, 
             'test_loss' : 0, 

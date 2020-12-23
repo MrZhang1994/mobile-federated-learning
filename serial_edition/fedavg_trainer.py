@@ -8,6 +8,7 @@ import time
 import math
 from client import Client
 from config import *
+import scheduler as sch
 
 
 class FedAvgTrainer(object):
@@ -87,20 +88,20 @@ class FedAvgTrainer(object):
         # initialize the scheduler function
         if self.args.method == "sch_mpn":
             for _ in range(100):
-                scheduler = scheduler.Scheduler_MPN()
+                scheduler = sch.Scheduler_MPN()
                 client_indexes, local_itr = scheduler.sch_mpn_test(1, 2002)
                 if len(client_indexes) > 5:
                     break
         elif self.args.method == "sch_random":
-            scheduler = scheduler.sch_random
+            scheduler = sch.sch_random
         elif self.args.method == "sch_channel":
-            scheduler = scheduler.sch_channel
+            scheduler = sch.sch_channel
         elif self.args.method == "sch_rrobin":
-            scheduler = scheduler.sch_rrobin
+            scheduler = sch.sch_rrobin
         elif self.args.method == "sch_loss":
-            scheduler = scheduler.sch_loss
+            scheduler = sch.sch_loss
         else:
-            scheduler = scheduler.sch_random
+            scheduler = sch.sch_random
 
         for round_idx in range(self.args.comm_round):
             logger.info("################Communication round : {}".format(round_idx))
@@ -212,6 +213,7 @@ class FedAvgTrainer(object):
                         w_glob[key] = torch.rand(w_glob[key].size())
                     counting_days = 0
                 else:
+                    
                     counting_days += 1                
                 self.time_counter = 0
             # set the time_counter 

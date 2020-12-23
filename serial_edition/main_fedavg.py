@@ -18,7 +18,7 @@ from config import *
 import scheduler
 
 # add the root dir of FedML
-sys.path.insert(0, os.path.abspath("/csh/mobile-FL/FedML-master")) 
+sys.path.insert(0, os.path.abspath("/home/zzp1012/FedML")) 
 
 from fedml_api.data_preprocessing.cifar10.data_loader import load_partition_data_cifar10
 from fedml_api.data_preprocessing.cifar100.data_loader import load_partition_data_cifar100
@@ -38,6 +38,7 @@ from fedml_api.model.nlp.rnn import RNN_OriginalFedAvg, RNN_StackOverFlow
 
 from fedml_api.model.linear.lr import LogisticRegression
 from fedml_api.model.cv.resnet_gn import resnet18
+
 
 def add_args():
     """
@@ -84,6 +85,9 @@ def add_args():
     parser.add_argument('--gpu', type=int, default=0,
                         help='gpu')
 
+    parser.add_argument('--seed', type=int, default=0,
+                        help='the random seed')
+
     parser.add_argument('--ci', type=int, default=0,
                         help='CI')
     # set if using debug mod
@@ -104,8 +108,6 @@ def load_data(args, dataset_name):
     return: dataset which contains [client_num, train_data_num, test_data_num, train_data_global, test_data_global,
                                     train_data_local_num_dict, train_data_local_dict, test_data_local_dict, class_num]
     """
-    logger.info("-------------dataset loading------------")
-
     # check if the full-batch training is enabled
     args_batch_size = args.batch_size
     if args.batch_size <= 0:
@@ -202,7 +204,6 @@ def create_model(args, model_name, output_dim):
     output_dim: the dimension of the output of the model.
     return: model.
     """
-    logger.debug("-------------model setting-------------")
     logger.debug("create_model. model_name = %s, output_dim = %s" % (model_name, output_dim))
     model = None
     if model_name == "lr" and args.dataset == "mnist":
@@ -240,9 +241,10 @@ def main():
     # Set the random seed. The np.random seed determines the dataset partition.
     # The torch_manual_seed determines the initial weight.
     # We fix these two, so that we can reproduce the result.
-    np.random.seed(0)
-    torch.manual_seed(10)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
 
+    # set if use logging debug version.
     logger.setLevel(logging.DEBUG)
     if not args.verbose:
         logger.setLevel(logging.INFO)
@@ -298,11 +300,13 @@ def main():
     logger.debug(device)
 
     # load data
+    logger.info("-------------dataset loading------------")
     dataset = load_data(args, args.dataset)
 
     # create model.
     # Note if the model is DNN (e.g., ResNet), the training will be very slow.
     # In this case, please use our FedML distributed version (./fedml_experiments/distributed_fedavg)
+    logger.debug("-------------model setting-------------")
     model = create_model(args, model_name=args.model, output_dim=dataset[-1])
     logger.debug(model)
 
@@ -312,6 +316,8 @@ def main():
         name="FedAVG-" + str(args.method)[4:] + "-r" + str(args.comm_round) + "-e" + str(args.epochs) + "-lr" + str(args.lr),
         config=args
     )
+
+    logger.debug("------------finish setting-------------")
 
     trainer = FedAvgTrainer(dataset, model, device, args)
     trainer.train(csv_writer1, csv_writer2, csv_writer3)
