@@ -108,7 +108,7 @@ class Scheduler_MPN:
     def __init__(self):
         self.rwd = Reward()
         RL = pg_mpn.PG if config.NAIVE_PG else ddpg_mpn.DDPG
-        self.agent = RL(LSTM_LAYERS_NUM, EMBEDDING_DIMENSION, HIDDEN_DIMENSION, LSTM_LAYERS_NUM)
+        self.agent = RL(MAXIMUM_ITERATION_NUM, EMBEDDING_DIMENSION, HIDDEN_DIMENSION, LSTM_LAYERS_NUM)
         self.env = Environment()
 
 
@@ -214,8 +214,7 @@ class Scheduler_MPN:
         # del available_car_last
         # ================================================================================================
         # train agent
-        if len(pointer)>0:
-            self.agent.store_transition(self.state_last, self.action_last, [reward], state)
+        self.agent.store_transition(self.state_last, self.action_last, [reward], state)
         loss = []
         if self.agent.memory:
             loss_a, td_error = self.agent.learn()
@@ -242,7 +241,7 @@ class Scheduler_MPN:
         csv_writer2_line.append(reward)
         csv_writer2.writerow(csv_writer2_line+loss)
 
-        return client_indexes, local_itr
+        return client_indexes, local_itr, reward
 
 
 def sch_random(round_idx, time_counter, csv_writer2):

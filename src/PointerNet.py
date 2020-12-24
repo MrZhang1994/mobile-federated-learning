@@ -172,7 +172,8 @@ class Decoder(nn.Module):
                 hidden,
                 context,
                 deterministic=True,
-                action=None):
+                action=None,
+                single_ptr=False):
         """
         Decoder - Forward-pass
 
@@ -244,13 +245,11 @@ class Decoder(nn.Module):
                 a_distribution = torch.distributions.Categorical(masked_outs)
                 if action is None:
                     indices = a_distribution.sample()
-                    log_prob += a_distribution.log_prob(indices)
                 elif i < len(action):
-                    indices = action[i].unsqueeze(0)
-                    log_prob += a_distribution.log_prob(indices)
+                    indices = action[:, i]
                 else:
-                    assert False
-                    indices = a_distribution.sample()
+                    indices = torch.tensor([input_length - 1])
+                log_prob += a_distribution.log_prob(indices)
             one_hot_pointers = (runner == indices.unsqueeze(1).expand(-1, outs.size()[1]))
 
             # Update mask to ignore seen indices
@@ -262,6 +261,9 @@ class Decoder(nn.Module):
 
             outputs.append(outs.unsqueeze(0))
             pointers.append(indices.unsqueeze(1))
+            # TODO: batch support
+            if single_ptr or indices[0] == input_length - 1:
+                break
 
         outputs = torch.cat(outputs).permute(1, 0, 2)
         pointers = torch.cat(pointers, 1)
@@ -306,7 +308,7 @@ class PointerNet(nn.Module):
         # Initialize decoder_input0
         nn.init.uniform(self.decoder_input0, -1, 1)
 
-    def forward(self, inputs, deterministic=True, action=None):
+    def forward(self, inputs, deterministic=True, action=None, single_ptr=False):
         """
         PointerNet - Forward-pass
 
@@ -339,6 +341,7 @@ class PointerNet(nn.Module):
                          decoder_hidden0,
                          encoder_outputs,
                          deterministic,
-                         action)
+                         action,
+                         single_ptr)
 
         return  outputs, pointers, decoder_hidden[0]

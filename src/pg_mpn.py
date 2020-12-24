@@ -68,15 +68,15 @@ class ANetProb(ANet):
         output_60[:,:,0:outputs.size(2)] = outputs
 
         if action is None:
-            output2, pointer2, hidden_state2 = self.pointer_network_layer2(output_60, False)
+            output2, pointer2, hidden_state2 = self.pointer_network_layer2(output_60, False, None, True)
         else:
-            output2, pointer2, hidden_state2 = self.pointer_network_layer2(output_60, False, action[1])
+            output2, pointer2, hidden_state2 = self.pointer_network_layer2(output_60, False, action[1], True)
 
         itr_num = pointer2[0, 0]  
         pointer = pointers[itr_num][0]
         log_prob = self.pointer_network_layer2.log_prob + self.pointer_network_layer1[j].log_prob
 
-        return itr_num, pointer, (log_prob, ([p[0] for p in pointers], pointer2[0, :1]))
+        return itr_num, pointer, (log_prob, (pointers, pointer2))
 
 
 class PG(object):
@@ -139,7 +139,6 @@ class PG(object):
         # ================================================================================================      
         return itr_num, pointer, hidden_states
     def learn(self):
-
         self.learn_time += 1
         loss_a = []
         for bt in self.memory:

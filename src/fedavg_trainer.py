@@ -112,13 +112,13 @@ class FedAvgTrainer(object):
             csv_writer1_line.append(self.time_counter)
             
             self.model_global.train()
-            
+            reward = 0
             if self.args.method == "sch_mpn":
                 if round_idx == 0:
                     csv_writer2.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'reward', 'loss_a', 'loss_c'])
                     client_indexes, local_itr = scheduler.sch_mpn_initial(round_idx, self.time_counter, csv_writer2)
                 else:
-                    client_indexes, local_itr = scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst[0], local_loss_lst, csv_writer2)
+                    client_indexes, local_itr, reward = scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst[0], local_loss_lst, csv_writer2)
             else:
                 if round_idx == 0:
                     csv_writer2.writerow(['time counter', 'client index', 'iteration', 'reward'])
@@ -239,7 +239,7 @@ class FedAvgTrainer(object):
                 csv_writer1_line.append(loss_avg)
 
             if round_idx % self.args.frequency_of_the_test == 0 or round_idx == self.args.comm_round - 1:
-                test_acc = self.local_test_on_all_clients(self.model_global, round_idx)
+                test_acc = self.local_test_on_all_clients(self.model_global, round_idx, reward)
                 csv_writer1_line.append(test_acc)
             
             csv_writer1.writerow(csv_writer1_line)
@@ -265,7 +265,7 @@ class FedAvgTrainer(object):
         return averaged_params
 
 
-    def local_test_on_all_clients(self, model_global, round_idx):
+    def local_test_on_all_clients(self, model_global, round_idx, reward):
         logger.info("################local_test_on_all_clients : {}".format(round_idx))
         train_metrics = {
             'num_samples' : [],
@@ -336,25 +336,19 @@ class FedAvgTrainer(object):
                      "Train/Pre": train_precision,
                      "Train/Rec": train_recall,
                      "Train/Loss": train_loss,
+                     "Test/Acc": test_acc,
+                     "Test/Pre": test_precision,
+                     "Test/Rec": test_recall,
+                     "Test/Loss": test_loss,
                      "round": round_idx,
-                     "time_counter": self.time_counter}
+                     "time_counter": self.time_counter,
+                     "reward": reward}
             wandb.log(stats)
 
             boardX.add_scalar("Train/Acc", train_acc, round_idx)
             boardX.add_scalar("Train/Pre", train_precision, round_idx)
             boardX.add_scalar("Train/Rec", train_recall, round_idx)
             boardX.add_scalar("Train/Loss", train_loss, round_idx)
-
-            logger.info(stats)
-
-            stats = {"Test/Acc": test_acc,
-                     "Test/Pre": test_precision,
-                     "Test/Rec": test_recall,
-                     "Test/Loss": test_loss,
-                     "round": round_idx,
-                     "time_counter": self.time_counter}
-            wandb.log(stats)
-
             boardX.add_scalar("Test/Acc", test_acc, round_idx)
             boardX.add_scalar("Test/Pre", test_precision, round_idx)
             boardX.add_scalar("Test/Rec", test_recall, round_idx)
@@ -365,21 +359,15 @@ class FedAvgTrainer(object):
         else:
             stats = {"Train/Acc": train_acc,
                      "Train/Loss": train_loss,
+                     "Test/Acc": test_acc,
+                     "Test/Loss": test_loss,
                      "round": round_idx,
-                     "time_counter": self.time_counter}
+                     "time_counter": self.time_counter,
+                     "reward": reward}
             wandb.log(stats)
 
             boardX.add_scalar("Train/Acc", train_acc, round_idx)
             boardX.add_scalar("Train/Loss", train_loss, round_idx)
-
-            logger.info(stats)
-
-            stats = {"Test/Acc": test_acc,
-                     "Test/Loss": test_loss,
-                     "round": round_idx,
-                     "time_counter": self.time_counter}
-            wandb.log(stats)
-
             boardX.add_scalar("Test/Acc", test_acc, round_idx)
             boardX.add_scalar("Test/Loss", test_loss, round_idx)
 
