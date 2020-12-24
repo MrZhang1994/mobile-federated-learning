@@ -6,3 +6,4 @@ src/wandb
 # ignore .vscode
 .vscode/
 FedML
+*.out

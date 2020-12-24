@@ -217,7 +217,7 @@ class Scheduler_MPN:
         if len(pointer)>0:
             self.agent.store_transition(self.state_last, self.action_last, [reward], state)
         loss = []
-        if self.agent.pointer > MEMORY_CAPACITY:
+        if self.agent.memory:
             loss_a, td_error = self.agent.learn()
             loss = [loss_a, td_error]
         # ================================================================================================

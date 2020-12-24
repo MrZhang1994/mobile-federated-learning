@@ -130,7 +130,7 @@ class PG(object):
             if pointer[i] == len(pointer)-1:
                 count = i
         if count == 0:
-            pointer = [0]
+            pointer = []
         else:
             pointer = pointer[0: count]
         # ================================================================================================
@@ -141,31 +141,30 @@ class PG(object):
     def learn(self):
 
         self.learn_time += 1
+        loss_a = []
+        for bt in self.memory:
+            bs = torch.FloatTensor(bt[0].astype(np.float32))
+            bitr_num = torch.FloatTensor((np.expand_dims(bt[1][0], axis=0)).astype(np.float32))
+            blog_prob, baction = bt[1][2]
+            br = torch.FloatTensor(bt[2])
+            bs_ = torch.FloatTensor(bt[3].astype(np.float32))
 
-        indices = np.random.randint(low = 0, high=MEMORY_CAPACITY)
-        bt = self.memory[indices]
-        bs = torch.FloatTensor(bt[0].astype(np.float32))
-        bitr_num = torch.FloatTensor((np.expand_dims(bt[1][0], axis=0)).astype(np.float32))
-        blog_prob, baction = bt[1][2]
-        br = torch.FloatTensor(bt[2])
-        bs_ = torch.FloatTensor(bt[3].astype(np.float32))
+            if use_gpu:
+                bs = bs.to(device) 
+                bitr_num = bitr_num.to(device) 
+                blog_prob = blog_prob.to(device)
+                br = br.to(device) 
+                bs_ = bs_.to(device) 
 
-        if use_gpu:
-            bs = bs.to(device) 
-            bitr_num = bitr_num.to(device) 
-            blog_prob = blog_prob.to(device)
-            br = br.to(device) 
-            bs_ = bs_.to(device) 
-
-        itr_num, pointer, (log_prob, _) = self.Actor(bs, baction)
-        loss_a = -(br * torch.exp(log_prob - blog_prob)).detach() * log_prob
+            itr_num, pointer, (log_prob, _) = self.Actor(bs, baction)
+            loss_a.append(-(br * torch.exp(log_prob - blog_prob)).detach() * log_prob)
+        loss_a = torch.stack(loss_a).mean()
         self.atrain.zero_grad()
         loss_a.backward()
         self.atrain.step()
 
         if use_gpu:
             loss_a = loss_a.cpu()
-
         return float(loss_a), 0
 
     def store_transition(self, s, a, r, s_):
