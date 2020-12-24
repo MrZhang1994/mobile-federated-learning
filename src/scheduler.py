@@ -11,6 +11,7 @@ import time
 import copy
 
 import ddpg_mpn
+import pg_mpn
 import config
 
 MEMORY_CAPACITY = config.MEMORY_CAPACITY
@@ -106,7 +107,8 @@ class Environment:
 class Scheduler_MPN:
     def __init__(self):
         self.rwd = Reward()
-        self.agent = ddpg_mpn.DDPG(LSTM_LAYERS_NUM, EMBEDDING_DIMENSION, HIDDEN_DIMENSION, LSTM_LAYERS_NUM)
+        RL = pg_mpn.PG if config.NAIVE_PG else ddpg_mpn.DDPG
+        self.agent = RL(LSTM_LAYERS_NUM, EMBEDDING_DIMENSION, HIDDEN_DIMENSION, LSTM_LAYERS_NUM)
         self.env = Environment()
 
 

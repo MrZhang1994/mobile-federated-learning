@@ -170,7 +170,9 @@ class Decoder(nn.Module):
     def forward(self, embedded_inputs,
                 decoder_input,
                 hidden,
-                context):
+                context,
+                deterministic=True,
+                action=None):
         """
         Decoder - Forward-pass
 
@@ -178,7 +180,7 @@ class Decoder(nn.Module):
         :param Tensor decoder_input: First decoder's input
         :param Tensor hidden: First decoder's hidden states
         :param Tensor context: Encoder's outputs
-        :return: (Output probabilities, Pointers indices), last hidden state
+        :return: (Output probabilities, Pointers indices), last hidden state, action log prob
         """
 
         batch_size = embedded_inputs.size(0)
@@ -196,6 +198,7 @@ class Decoder(nn.Module):
 
         outputs = []
         pointers = []
+        log_prob = 0.
 
         def step(x, hidden):
             """
@@ -227,7 +230,7 @@ class Decoder(nn.Module):
             return hidden_t, c_t, output
 
         # Recurrence loop
-        for _ in range(input_length):
+        for i in range(input_length):
             h_t, c_t, outs = step(decoder_input, hidden)
             hidden = (h_t, c_t)
 
@@ -235,7 +238,19 @@ class Decoder(nn.Module):
             masked_outs = outs * mask
 
             # Get maximum probabilities and indices
-            max_probs, indices = masked_outs.max(1)
+            if deterministic:
+                max_probs, indices = masked_outs.max(1)
+            else:
+                a_distribution = torch.distributions.Categorical(masked_outs)
+                if action is None:
+                    indices = a_distribution.sample()
+                    log_prob += a_distribution.log_prob(indices)
+                elif i < len(action):
+                    indices = action[i].unsqueeze(0)
+                    log_prob += a_distribution.log_prob(indices)
+                else:
+                    assert False
+                    indices = a_distribution.sample()
             one_hot_pointers = (runner == indices.unsqueeze(1).expand(-1, outs.size()[1]))
 
             # Update mask to ignore seen indices
@@ -251,7 +266,7 @@ class Decoder(nn.Module):
         outputs = torch.cat(outputs).permute(1, 0, 2)
         pointers = torch.cat(pointers, 1)
 
-        return (outputs, pointers), hidden
+        return (outputs, pointers), hidden, log_prob
 
 
 class PointerNet(nn.Module):
@@ -286,11 +301,12 @@ class PointerNet(nn.Module):
                                bidir)
         self.decoder = Decoder(embedding_dim, hidden_dim)
         self.decoder_input0 = Parameter(torch.FloatTensor(embedding_dim), requires_grad=False)
+        self.log_prob = 0.
 
         # Initialize decoder_input0
         nn.init.uniform(self.decoder_input0, -1, 1)
 
-    def forward(self, inputs):
+    def forward(self, inputs, deterministic=True, action=None):
         """
         PointerNet - Forward-pass
 
@@ -317,9 +333,12 @@ class PointerNet(nn.Module):
                                encoder_hidden[1][-1])
 
 
-        (outputs, pointers), decoder_hidden = self.decoder(embedded_inputs,
-                                                           decoder_input0,
-                                                           decoder_hidden0,
-                                                           encoder_outputs)
+        (outputs, pointers), decoder_hidden, self.log_prob = \
+            self.decoder(embedded_inputs,
+                         decoder_input0,
+                         decoder_hidden0,
+                         encoder_outputs,
+                         deterministic,
+                         action)
 
         return  outputs, pointers, decoder_hidden[0]
