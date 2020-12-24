@@ -43,7 +43,7 @@ TIME_COMPRESSION_RATIO = 0.1
 # ==========================
 # Parameters for ddpg
 # ==========================
-MEMORY_CAPACITY = 50 # size of experience pool
+MEMORY_CAPACITY = 10 # size of experience pool
 LR_A = 0.01         # learning rate for actor
 LR_C = 0.001        # learning rate for critic
 GAMMA = 0.9         # reward discount
