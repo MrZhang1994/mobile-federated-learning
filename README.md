@@ -3,9 +3,9 @@
 ## Requirements
 
 1. Download the repo on Github [FedML](https://github.com/FedML-AI/FedML)
-2. Change the root dir in `main_fedavg.py` to the absolute path of `FedML`. For example,
-    ```python
-        sys.path.insert(0, os.path.abspath("/home/zzp1012/FedML")) # add the root dir of FedML
+2. Link FedML to here
+    ```bash
+        ln -s PATH_TO_FEDML .
     ```
 3. Follow the instruction or documentation of [FedML](https://github.com/FedML-AI/FedML) to install required package in python environment.
 

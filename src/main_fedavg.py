@@ -18,7 +18,7 @@ from config import *
 import scheduler
 
 # ************************************************************************************************************ #
-sys.path.insert(0, os.path.abspath("FedML")) # add the root dir of FedML
+sys.path.insert(0, os.path.abspath("../FedML")) # add the root dir of FedML
 # ************************************************************************************************************ #
 
 from fedml_api.data_preprocessing.cifar10.data_loader import load_partition_data_cifar10
