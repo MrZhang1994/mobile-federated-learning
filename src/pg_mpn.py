@@ -75,8 +75,9 @@ class ANetProb(ANet):
         itr_num = pointer2[0, 0]  
         pointer = pointers[itr_num][0]
         log_prob = self.pointer_network_layer2.log_prob + self.pointer_network_layer1[j].log_prob
+        entropy = self.pointer_network_layer2.entropy + self.pointer_network_layer1[j].entropy
 
-        return itr_num, pointer, (log_prob, (pointers, pointer2))
+        return itr_num, pointer, ((log_prob, entropy), (pointers, pointer2))
 
 
 class PG(object):
@@ -89,7 +90,7 @@ class PG(object):
 
         self.Actor = ANetProb(self.max_itr_num, embedding_dim, hidden_dim, lstm_layers)
 
-        self.atrain = torch.optim.Adam(self.Actor.parameters(), lr = LR_A)
+        self.atrain = torch.optim.Adam(self.Actor.parameters(), lr=LR_A, weight_decay=1e-4)
         self.loss_td = nn.MSELoss()
         if use_gpu:
             self.Actor = self.Actor.to(device)
@@ -119,8 +120,8 @@ class PG(object):
         if use_gpu:
             itr_num = itr_num.cpu()
             pointer = pointer.cpu()
-            log_prob, (ptrs_1, ptr2) = hidden_states
-            hidden_states = log_prob.cpu(), ([p.cpu() for p in ptrs_1], ptr2.cpu())
+            (log_prob, _), (ptrs_1, ptr2) = hidden_states
+            hidden_states = (log_prob.cpu(), None), ([p.cpu() for p in ptrs_1], ptr2.cpu())
 
         itr_num = itr_num.detach().numpy() + 1
         pointer = pointer.detach().numpy()
@@ -139,12 +140,13 @@ class PG(object):
         # ================================================================================================      
         return itr_num, pointer, hidden_states
     def learn(self):
+        return 0, 0
         self.learn_time += 1
         loss_a = []
         for bt in self.memory:
             bs = torch.FloatTensor(bt[0].astype(np.float32))
             bitr_num = torch.FloatTensor((np.expand_dims(bt[1][0], axis=0)).astype(np.float32))
-            blog_prob, baction = bt[1][2]
+            (blog_prob, _), baction = bt[1][2]
             br = torch.FloatTensor(bt[2])
             bs_ = torch.FloatTensor(bt[3].astype(np.float32))
 
@@ -155,8 +157,8 @@ class PG(object):
                 br = br.to(device) 
                 bs_ = bs_.to(device) 
 
-            itr_num, pointer, (log_prob, _) = self.Actor(bs, baction)
-            loss_a.append(-(br * torch.exp(log_prob - blog_prob)).detach() * log_prob)
+            itr_num, pointer, ((log_prob, entropy), _) = self.Actor(bs, baction)
+            loss_a.append(-(br * torch.exp(log_prob - blog_prob)).detach() * log_prob - 1e-3 * entropy)
         loss_a = torch.stack(loss_a).mean()
         self.atrain.zero_grad()
         loss_a.backward()
