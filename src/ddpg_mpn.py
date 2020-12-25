@@ -317,7 +317,7 @@ class DDPG(object):
             target_param.data.copy_(target_param.data*(1.0 - TAU) + param.data*TAU)
         
 
-        indices = np.random.randint(low = 0, high=MEMORY_CAPACITY)
+        indices = np.random.randint(low = 0, high=len(self.memory))
         bt = self.memory[indices]
         # print(bt)
         bs = torch.FloatTensor(bt[0].astype(np.float32))

@@ -232,6 +232,7 @@ class Decoder(nn.Module):
             return hidden_t, c_t, output
 
         # Recurrence loop
+        sample_num = 0
         for i in range(input_length):
             h_t, c_t, outs = step(decoder_input, hidden)
             hidden = (h_t, c_t)
@@ -245,8 +246,6 @@ class Decoder(nn.Module):
             else:
                 if not single_ptr and i == 0 and input_length > 1:
                     masked_outs[:, -1] = 0  # sample at least one client
-                assert torch.all(masked_outs >= 0), masked_outs
-                masked_outs /= masked_outs.sum()
                 a_distribution = torch.distributions.Categorical(masked_outs)
                 if action is None:
                     indices = a_distribution.sample()
@@ -255,7 +254,8 @@ class Decoder(nn.Module):
                 else:
                     indices = torch.tensor([input_length - 1])
                 log_prob += a_distribution.log_prob(indices)
-                entropy += -torch.sum(masked_outs * masked_outs.log())
+                entropy += a_distribution.entropy()
+                sample_num += 1
             one_hot_pointers = (runner == indices.unsqueeze(1).expand(-1, outs.size()[1]))
 
             # Update mask to ignore seen indices
@@ -274,7 +274,7 @@ class Decoder(nn.Module):
         outputs = torch.cat(outputs).permute(1, 0, 2)
         pointers = torch.cat(pointers, 1)
 
-        return (outputs, pointers), hidden, (log_prob, entropy)
+        return (outputs, pointers), hidden, (log_prob / sample_num, entropy / sample_num)
 
 
 class PointerNet(nn.Module):

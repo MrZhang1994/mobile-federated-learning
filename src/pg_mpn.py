@@ -158,7 +158,7 @@ class PG(object):
                 bs_ = bs_.to(device) 
 
             itr_num, pointer, ((log_prob, entropy), _) = self.Actor(bs, baction)
-            loss_a.append(-(br * torch.exp(log_prob - blog_prob)).detach() * log_prob - 1e-3 * entropy)
+            loss_a.append(-(br * torch.exp(log_prob - blog_prob)).detach() * log_prob - 1e-2 * entropy)
         loss_a = torch.stack(loss_a).mean()
         self.atrain.zero_grad()
         loss_a.backward()
