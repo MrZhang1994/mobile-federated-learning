@@ -29,8 +29,8 @@ logger = logging.getLogger("training")
 boardX = SummaryWriter(comment="fedavg")
 
 # set up threads for numpy
-os.environ['NUMEXPR_MAX_THREADS'] = '16'
-os.environ['NUMEXPR_NUM_THREADS'] = '8'
+os.environ['NUMEXPR_MAX_THREADS'] = str(os.cpu_count())
+os.environ['NUMEXPR_NUM_THREADS'] = str(round(os.cpu_count() / 2))
 
 # ===============================
 # store results for training process

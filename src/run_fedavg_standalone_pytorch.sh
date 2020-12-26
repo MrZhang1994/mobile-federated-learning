@@ -20,11 +20,9 @@ LR=$9
 
 OPT=$10
 
-CI=$11
+METHOD=$11
 
-METHOD=$12
-
-VERBOSE=$13 #-v
+VERBOSE=$12 #-v
 
 if [ $METHOD = "all" ]; then
     python3 ./main_fedavg.py \
@@ -38,7 +36,6 @@ if [ $METHOD = "all" ]; then
     --batch_size $BATCH_SIZE \
     --client_optimizer $OPT \
     --lr $LR \
-    --ci $CI \
     --method "sch_mpn" \
     $VERBOSE
 
@@ -53,7 +50,6 @@ if [ $METHOD = "all" ]; then
     --batch_size $BATCH_SIZE \
     --client_optimizer $OPT \
     --lr $LR \
-    --ci $CI \
     --method "sch_random" \
     $VERBOSE
 
@@ -69,7 +65,6 @@ if [ $METHOD = "all" ]; then
     --batch_size $BATCH_SIZE \
     --client_optimizer $OPT \
     --lr $LR \
-    --ci $CI \
     --method "sch_channel" \
     $VERBOSE
 
@@ -84,7 +79,6 @@ if [ $METHOD = "all" ]; then
     --batch_size $BATCH_SIZE \
     --client_optimizer $OPT \
     --lr $LR \
-    --ci $CI \
     --method "sch_rrobin" \
     $VERBOSE
 
@@ -100,7 +94,6 @@ if [ $METHOD = "all" ]; then
     --batch_size $BATCH_SIZE \
     --client_optimizer $OPT \
     --lr $LR \
-    --ci $CI \
     --method "sch_loss" \
     $VERBOSE
 else
@@ -115,7 +108,6 @@ else
     --batch_size $BATCH_SIZE \
     --client_optimizer $OPT \
     --lr $LR \
-    --ci $CI \
     --method $METHOD \
     $VERBOSE
 fi

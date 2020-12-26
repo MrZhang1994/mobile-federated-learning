@@ -7,11 +7,11 @@ import math
 import torch
 import numpy as np
 import numexpr as ne
+import torch.multiprocessing as mp
 
 from client import Client
 from config import *
 import scheduler as sch
-
 
 class FedAvgTrainer(object):
     def __init__(self, dataset, model, device, args):
@@ -37,6 +37,24 @@ class FedAvgTrainer(object):
 
         self.model_global = model
         self.model_global.train()
+
+        # initialize the scheduler function
+        if self.args.method == "sch_mpn":
+            for _ in range(100):
+                self.scheduler = sch.Scheduler_MPN()
+                client_indexes, local_itr = self.scheduler.sch_mpn_test(1, 2002)
+                if len(client_indexes) > 5:
+                    break
+        elif self.args.method == "sch_random":
+            self.scheduler = sch.sch_random
+        elif self.args.method == "sch_channel":
+            self.scheduler = sch.sch_channel
+        elif self.args.method == "sch_rrobin":
+            self.scheduler = sch.sch_rrobin
+        elif self.args.method == "sch_loss":
+            self.scheduler = sch.sch_loss
+        else:
+            self.scheduler = sch.sch_random
  
  
     def setup_clients(self, train_data_local_num_dict, train_data_local_dict, test_data_local_dict):
@@ -46,25 +64,6 @@ class FedAvgTrainer(object):
                        train_data_local_num_dict[client_idx], self.args, self.device)
             self.client_list.append(c)
         logger.debug("############setup_clients (END)#############")
-
-
-    def tx_time(self, client_indexes):
-        if not client_indexes:
-            self.time_counter += 1
-            return 
-        # read the channel condition for corresponding cars.
-        channel_res = np.reshape(np.array(channel_data[channel_data['Time'] == self.time_counter * channel_data['Car'].isin(client_indexes)]["Distance to BS(4982,905)"]), (1, -1))
-        logger.debug("channel_res: {}".format(channel_res))
-
-        # linearly resolve the optimazation problem
-        tmp_t = 1
-        while np.sum(RES_WEIGHT * channel_res * RES_RATIO / tmp_t) > 1:
-            tmp_t += 1
-
-        # self.time_counter += tmp_t
-        self.time_counter += math.ceil(TIME_COMPRESSION_RATIO*tmp_t)
-
-        logger.debug("time_counter after tx_time: {}".format(self.time_counter))
 
 
     def train(self):
@@ -87,24 +86,6 @@ class FedAvgTrainer(object):
             A_mat[para] = np.ones(weight_shape) # initial the value of A with zero.
         G_mat = np.zeros((1, int(client_num_in_total))) # initial the value of G with zero
 
-        # initialize the scheduler function
-        if self.args.method == "sch_mpn":
-            for _ in range(100):
-                scheduler = sch.Scheduler_MPN()
-                client_indexes, local_itr = scheduler.sch_mpn_test(1, 2002)
-                if len(client_indexes) > 5:
-                    break
-        elif self.args.method == "sch_random":
-            scheduler = sch.sch_random
-        elif self.args.method == "sch_channel":
-            scheduler = sch.sch_channel
-        elif self.args.method == "sch_rrobin":
-            scheduler = sch.sch_rrobin
-        elif self.args.method == "sch_loss":
-            scheduler = sch.sch_loss
-        else:
-            scheduler = sch.sch_random
-
         for round_idx in range(self.args.comm_round):
             logger.info("################Communication round : {}".format(round_idx))
             logger.info("time_counter: {}".format(self.time_counter))
@@ -118,13 +99,13 @@ class FedAvgTrainer(object):
             if self.args.method == "sch_mpn":
                 if round_idx == 0:
                     csv_writer2.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'reward', 'loss_a', 'loss_c'])
-                    client_indexes, local_itr = scheduler.sch_mpn_initial(round_idx, self.time_counter, csv_writer2)
+                    client_indexes, local_itr = self.scheduler.sch_mpn_initial(round_idx, self.time_counter, csv_writer2)
                 else:
-                    client_indexes, local_itr = scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst[0], local_loss_lst, csv_writer2)
+                    client_indexes, local_itr = self.scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst[0], local_loss_lst, csv_writer2)
             else:
                 if round_idx == 0:
                     csv_writer2.writerow(['time counter', 'client index', 'iteration', 'reward'])
-                client_indexes, local_itr = scheduler(round_idx, self.time_counter, csv_writer2)
+                client_indexes, local_itr = self.scheduler(round_idx, self.time_counter, csv_writer2)
             
             # contribute to time counter
             self.tx_time(client_indexes) # transmit time
@@ -192,6 +173,7 @@ class FedAvgTrainer(object):
 
             # update FPF index list
             FPF2_idx_lst = FPF2_cal(local_w_lst)
+            
             csv_writer3.writerow([self.time_counter]+FPF2_idx_lst[0].tolist())
 
             # update global weights
@@ -208,7 +190,7 @@ class FedAvgTrainer(object):
             
             # if current time_counter has exceed the channel table, I will simply stop early
             if self.time_counter >= channel_data["Time"].max():
-                logger.info("++++++++++++++schedualing restart++++++++++++++")
+                logger.info("################schedualing restarts")
                 if counting_days == RESTART_DAYS:
                     for key in w_glob.keys():
                         w_glob[key] = torch.rand(w_glob[key].size())
@@ -233,17 +215,38 @@ class FedAvgTrainer(object):
             # print loss
             if not loss_locals:
                 logger.info('Round {:3d}, Average loss None'.format(round_idx))
+                
                 csv_writer1_line.append('None')
             else:
                 loss_avg = sum(loss_locals) / len(loss_locals)
                 logger.info('Round {:3d}, Average loss {:.3f}'.format(round_idx, loss_avg))
+                
                 csv_writer1_line.append(loss_avg)
 
             if round_idx % self.args.frequency_of_the_test == 0 or round_idx == self.args.comm_round - 1:
                 test_acc = self.local_test_on_all_clients(self.model_global, round_idx)
+                
                 csv_writer1_line.append(test_acc)
             
             csv_writer1.writerow(csv_writer1_line)
+
+    def tx_time(self, client_indexes):
+        if not client_indexes:
+            self.time_counter += 1
+            return 
+        # read the channel condition for corresponding cars.
+        channel_res = np.reshape(np.array(channel_data[channel_data['Time'] == self.time_counter * channel_data['Car'].isin(client_indexes)]["Distance to BS(4982,905)"]), (1, -1))
+        logger.debug("channel_res: {}".format(channel_res))
+
+        # linearly resolve the optimazation problem
+        tmp_t = 1
+        while np.sum(RES_WEIGHT * channel_res * RES_RATIO / tmp_t) > 1:
+            tmp_t += 1
+
+        # self.time_counter += tmp_t
+        self.time_counter += math.ceil(TIME_COMPRESSION_RATIO*tmp_t)
+
+        logger.debug("time_counter after tx_time: {}".format(self.time_counter))
 
 
     def aggregate(self, w_locals):

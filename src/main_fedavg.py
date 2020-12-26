@@ -85,9 +85,7 @@ def add_args():
 
     parser.add_argument('--seed', type=int, default=0,
                         help='the random seed')
-
-    parser.add_argument('--ci', type=int, default=0,
-                        help='CI')
+                        
     # set if using debug mod
     parser.add_argument("-v", "--verbose", action= "store_true", dest= "verbose", 
                         help= "enable debug info output")
