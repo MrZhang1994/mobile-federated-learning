@@ -255,7 +255,7 @@ class Decoder(nn.Module):
                     indices = torch.tensor([input_length - 1])
                 log_prob += a_distribution.log_prob(indices)
                 entropy += a_distribution.entropy()
-                sample_num += 1
+            sample_num += 1
             one_hot_pointers = (runner == indices.unsqueeze(1).expand(-1, outs.size()[1]))
 
             # Update mask to ignore seen indices

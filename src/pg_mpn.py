@@ -108,6 +108,7 @@ class PG(object):
     def choose_action(self, state):
         state = state.astype(np.float32)
         ss = torch.FloatTensor(state)
+        num_clients = state.shape[1]
 
         if use_gpu:
             ss = ss.to(device)   
@@ -126,9 +127,8 @@ class PG(object):
         itr_num = itr_num.detach().numpy() + 1
         pointer = pointer.detach().numpy()
         count = 0
-        # print(pointer)
         for i in range(len(pointer)):
-            if pointer[i] == len(pointer)-1:
+            if pointer[i] == num_clients:
                 count = i
         if count == 0:
             pointer = []
@@ -139,8 +139,8 @@ class PG(object):
         # itr_num, pointer = Amender(itr_num, pointer, state)
         # ================================================================================================      
         return itr_num, pointer, hidden_states
+
     def learn(self):
-        return 0, 0
         self.learn_time += 1
         loss_a = []
         for bt in self.memory:
