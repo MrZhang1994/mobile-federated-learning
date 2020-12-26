@@ -1,15 +1,17 @@
-import logging
-import pandas as pd
 import os
+import csv
+import logging
+from datetime import datetime
+import pandas as pd
 from tensorboardX import SummaryWriter
 
 # set the data dir
-channel_data_dir = "../data"
-date_length = 10
+CHANNEL_DATA_DIR = "../data"
+DATE_LENGTH = 10
 # read channel data at once.
-channel_data = pd.concat([pd.read_csv(channel_data_dir+'/'+str(csv_name)+'.csv'
-                     # error_bad_lines=False
-                     ) for csv_name in range(1001, 1001+date_length)], ignore_index = True)
+channel_data = pd.concat([pd.read_csv(CHANNEL_DATA_DIR+'/'+str(csv_name)+'.csv'
+                         # error_bad_lines=False
+                         ) for csv_name in range(1001, 1001+DATE_LENGTH)], ignore_index = True)
 # restrict the number of client_num_in_total to maxmium car ID + 1
 client_num_in_total = channel_data['Car'].max() + 1
 client_num_per_round = 100 # number of local clients
@@ -24,11 +26,52 @@ logging.basicConfig(
 logger = logging.getLogger("training")
 
 # setup the tensorboardX
-boardX = SummaryWriter(comment="-fedavg")
+boardX = SummaryWriter(comment="fedavg")
 
 # set up threads for numpy
 os.environ['NUMEXPR_MAX_THREADS'] = '16'
 os.environ['NUMEXPR_NUM_THREADS'] = '8'
+
+# ===============================
+# store results for training process
+# ===============================
+# setup directories for store paritial results
+DAY =  str(datetime.now().month).zfill(2)+str(datetime.now().day).zfill(2)
+MOMENT = str(datetime.now().hour).zfill(2)+str(datetime.now().minute).zfill(2)
+RESULT_PATH = os.path.join("result", DAY, MOMENT)
+if os.path.exists(RESULT_PATH) == False:
+    os.makedirs(RESULT_PATH)
+
+# initialize some csv_writers
+csv_writer1 = csv.writer(open(
+    os.path.join(RESULT_PATH, "-".join(["trainer", DAY, MOMENT]) + '.csv'), # file name
+    'w+', # write mode
+    encoding='utf-8', # encode mode 
+    newline='')
+    )
+csv_writer1.writerow(['round index',
+                      'time counter',
+                      'client index',
+                      'train time', 
+                      'fairness', 
+                      'local loss', 
+                      'global loss', 
+                      'test accuracy'])
+
+csv_writer2 = csv.writer(open(
+    os.path.join(RESULT_PATH, "-".join(["scheduler", DAY, MOMENT]) + '.csv'), # file name
+    'w+', # write mode
+    encoding='utf-8', # encode mode 
+    newline='')
+    )
+
+csv_writer3 = csv.writer(open(
+    os.path.join(RESULT_PATH, "-".join(["FPF", DAY, MOMENT]) + '.csv'), # file name
+    'w+', # write mode
+    encoding='utf-8', # encode mode 
+    newline='')
+    )
+csv_writer3.writerow(['time counter'] + ["car_"+str(i) for i in range(client_num_in_total)])
 
 # ===============================
 # set hyperparameters for Trainer

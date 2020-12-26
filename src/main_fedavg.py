@@ -2,11 +2,9 @@
 # system python package load.
 import argparse
 import logging
-import os, shutil
+import os
 import sys
 import time
-from datetime import datetime
-import csv
 import random
 
 # Maching learning tool chain.
@@ -16,7 +14,6 @@ import wandb
 
 from fedavg_trainer import FedAvgTrainer
 from config import *
-import scheduler
 
 # add the root dir of FedML
 sys.path.insert(0, os.path.abspath("/home/zzp1012/FedML")) 
@@ -252,33 +249,6 @@ def main():
     if not args.verbose:
         logger.setLevel(logging.INFO)
     logger.debug("--------DEBUG enviroment start---------")
-
-    dt=datetime.now()
-    DAY =  str(dt.month).zfill(2)+str(dt.day).zfill(2)
-    Time = str(dt.month).zfill(2)+str(dt.day).zfill(2)+'_'+str(dt.hour).zfill(2)+str(dt.minute).zfill(2)
-    del dt
-    path = 'result/'+DAY
-    if os.path.exists(path) == False:
-        os.makedirs(path)
-    path = path+'/'+str(args.method)[4:]+'_'+Time
-    if os.path.exists(path) == False:
-        os.makedirs(path)
-
-    # initialize some csv_writers
-    para_record1 = open(path+'/trainer_'+str(args.method)[4:]+'_'+DAY+'_'+Time+'.csv', 'w', encoding='utf-8', newline='')
-    csv_writer1 = csv.writer(para_record1)
-    csv_writer1.writerow(['round index', 'time counter', 'client index', 'train time', 'fairness', 'local loss', 'global loss', 'test accuracy'])
-    
-    para_record2 = open(path+'/scheduler_'+str(args.method)[4:]+'_'+DAY+'_'+Time+'.csv', 'w', encoding='utf-8', newline='')
-    csv_writer2 = csv.writer(para_record2)
-    
-    para_record3 = open(path+'/FPF_'+str(args.method)[4:]+'_'+DAY+'_'+Time+'.csv', 'w', encoding='utf-8', newline='')
-    csv_writer3 = csv.writer(para_record3)
-    
-    list_a = ['time counter']
-    for i in range(client_num_in_total):
-        list_a.append("car_"+str(i))
-    csv_writer3.writerow(list_a)
     
     # show the upate information
     logger.debug("-------global parameters setting-------")
@@ -287,6 +257,7 @@ def main():
     logger.debug("G1: {}".format(G1))
     logger.debug("G2: {}".format(G2))
     logger.debug("RESTART_DAYS: {}".format(RESTART_DAYS))
+    logger.debug("DATE_LENGTH {}".format(DATE_LENGTH))
     logger.debug("TIME_COMPRESSION_RATIO: {}".format(TIME_COMPRESSION_RATIO))
 
     logger.debug("------ordinary parameter setting-------")
@@ -294,7 +265,7 @@ def main():
 
     # show other information
     logger.debug("-----------Other information-----------")
-    logger.debug("channel_data_dir {}".format(channel_data_dir))
+    logger.debug("CHANNEL_DATA_DIR {}".format(CHANNEL_DATA_DIR))
     logger.debug("client_num_in_total: {}".format(client_num_in_total))
     logger.debug("client_num_in_total: {}".format(client_num_per_round))
 
@@ -323,7 +294,7 @@ def main():
     logger.debug("------------finish setting-------------")
 
     trainer = FedAvgTrainer(dataset, model, device, args)
-    trainer.train(csv_writer1, csv_writer2, csv_writer3)
+    trainer.train()
 
 if __name__ == "__main__":
     main()

@@ -1,11 +1,13 @@
 # newly added libraries
 import copy
-import socket
-import torch
-import numpy as np
 import wandb
 import time
 import math
+
+import torch
+import numpy as np
+import numexpr as ne
+
 from client import Client
 from config import *
 import scheduler as sch
@@ -65,7 +67,7 @@ class FedAvgTrainer(object):
         logger.debug("time_counter after tx_time: {}".format(self.time_counter))
 
 
-    def train(self, csv_writer1, csv_writer2, csv_writer3):
+    def train(self):
         # Initialize values
         local_itr_lst = np.zeros((1, self.args.comm_round)) # historical local iterations.
         client_selec_lst = np.zeros((self.args.comm_round, int(client_num_in_total))) # historical client selections.
