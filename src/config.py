@@ -26,6 +26,10 @@ logger = logging.getLogger("training")
 # setup the tensorboardX
 boardX = SummaryWriter(comment="-fedavg")
 
+# set up threads for numpy
+os.environ['NUMEXPR_MAX_THREADS'] = '16'
+os.environ['NUMEXPR_NUM_THREADS'] = '8'
+
 # ===============================
 # set hyperparameters for Trainer
 # ===============================

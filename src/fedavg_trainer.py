@@ -15,18 +15,15 @@ class FedAvgTrainer(object):
     def __init__(self, dataset, model, device, args):
         self.device = device
         self.args = args
+        
         [client_num, train_data_num, test_data_num, train_data_global, test_data_global,
          train_data_local_num_dict, train_data_local_dict, test_data_local_dict, class_num] = dataset
         # record the client number of the dataset
         self.client_num = client_num 
-
         self.train_global = train_data_global
         self.test_global = test_data_global
         self.train_data_num_in_total = train_data_num
         self.test_data_num_in_total = test_data_num
-
-        self.model_global = model
-        self.model_global.train()
 
         self.client_list = []
         self.train_data_local_num_dict = train_data_local_num_dict
@@ -36,6 +33,9 @@ class FedAvgTrainer(object):
         # time counter starts from the first line
         self.time_counter = channel_data['Time'][0]
 
+        self.model_global = model
+        self.model_global.train()
+ 
  
     def setup_clients(self, train_data_local_num_dict, train_data_local_dict, test_data_local_dict):
         logger.debug("############setup_clients (START)#############")
@@ -149,7 +149,6 @@ class FedAvgTrainer(object):
                 # update dataset
                 client = self.client_list[idx]
                 client_idx = client_indexes[idx]
-
                 dataset_idx = client_idx % self.client_num
                 client.update_local_dataset(dataset_idx, self.train_data_local_dict[dataset_idx],
                                             self.test_data_local_dict[dataset_idx],
@@ -267,23 +266,21 @@ class FedAvgTrainer(object):
 
     def local_test_on_all_clients(self, model_global, round_idx):
         logger.info("################local_test_on_all_clients : {}".format(round_idx))
+
         train_metrics = {
-            'num_samples' : [],
-            'num_correct' : [],
-            'precisions' : [],
-            'recalls' : [],
-            'losses' : []
+            'num_samples': [],
+            'num_correct': [],
+            'losses': []
         }
-        
+
         test_metrics = {
-            'num_samples' : [],
-            'num_correct' : [],
-            'precisions' : [],
-            'recalls' : [],
-            'losses' : []
+            'num_samples': [],
+            'num_correct': [],
+            'losses': []
         }
 
         client = self.client_list[0]
+
         for client_idx in range(min(int(client_num_in_total), self.client_num)):
             """
             Note: for datasets like "fed_CIFAR100" and "fed_shakespheare",
@@ -306,12 +303,6 @@ class FedAvgTrainer(object):
             test_metrics['num_correct'].append(copy.deepcopy(test_local_metrics['test_correct']))
             test_metrics['losses'].append(copy.deepcopy(test_local_metrics['test_loss']))
 
-            if self.args.dataset == "stackoverflow_lr":
-                train_metrics['precisions'].append(copy.deepcopy(train_local_metrics['test_precision']))
-                train_metrics['recalls'].append(copy.deepcopy(train_local_metrics['test_recall']))
-                test_metrics['precisions'].append(copy.deepcopy(test_local_metrics['test_precision']))
-                test_metrics['recalls'].append(copy.deepcopy(test_local_metrics['test_recall']))
-
             """
             Note: CI environment is CPU-based computing. 
             The training speed for RNN training is to slow in this setting, so we only test a client to make sure there is no programming error.
@@ -322,59 +313,17 @@ class FedAvgTrainer(object):
         # test on training dataset
         train_acc = sum(train_metrics['num_correct']) / sum(train_metrics['num_samples'])
         train_loss = sum(train_metrics['losses']) / sum(train_metrics['num_samples'])
-        train_precision = sum(train_metrics['precisions']) / sum(train_metrics['num_samples'])
-        train_recall = sum(train_metrics['recalls']) / sum(train_metrics['num_samples'])
 
         # test on test dataset
         test_acc = sum(test_metrics['num_correct']) / sum(test_metrics['num_samples'])
         test_loss = sum(test_metrics['losses']) / sum(test_metrics['num_samples'])
-        test_precision = sum(test_metrics['precisions']) / sum(test_metrics['num_samples'])
-        test_recall = sum(test_metrics['recalls']) / sum(test_metrics['num_samples'])
 
-        if self.args.dataset == "stackoverflow_lr":
-            stats = {'training_acc': train_acc, 'training_precision': train_precision, 'training_recall': train_recall, 'training_loss': train_loss}
-            wandb.log({"Train/Acc": train_acc, "round": round_idx})
-            wandb.log({"Train/Pre": train_precision, "round": round_idx})
-            wandb.log({"Train/Rec": train_recall, "round": round_idx})
-            wandb.log({"Train/Loss": train_loss, "round": round_idx})
+        stats = {'training_acc': train_acc, 'training_loss': train_loss}
+        wandb.log({"Train/Acc": train_acc, "round": round_idx})
+        wandb.log({"Train/Loss": train_loss, "round": round_idx})
+        logger.info(stats)
 
-            boardX.add_scalar("Train/Acc", train_acc, round_idx)
-            boardX.add_scalar("Train/Pre", train_precision, round_idx)
-            boardX.add_scalar("Train/Rec", train_recall, round_idx)
-            boardX.add_scalar("Train/Loss", train_loss, round_idx)
-
-            logger.info(stats)
-
-            stats = {'test_acc': test_acc, 'test_precision': test_precision, 'test_recall': test_recall, 'test_loss': test_loss}
-            wandb.log({"Test/Acc": test_acc, "round": round_idx})
-            wandb.log({"Test/Pre": test_precision, "round": round_idx})
-            wandb.log({"Test/Rec": test_recall, "round": round_idx})
-            wandb.log({"Test/Loss": test_loss, "round": round_idx})
-
-            boardX.add_scalar("Test/Acc", test_acc, round_idx)
-            boardX.add_scalar("Test/Pre", test_precision, round_idx)
-            boardX.add_scalar("Test/Rec", test_recall, round_idx)
-            boardX.add_scalar("Test/Loss", test_loss, round_idx)
-
-            logger.info(stats)
-
-        else:
-            stats = {'training_acc': train_acc, 'training_loss': train_loss}
-            wandb.log({"Train/Acc": train_acc, "round": round_idx})
-            wandb.log({"Train/Loss": train_loss, "round": round_idx})
-
-            boardX.add_scalar("Train/Acc", train_acc, round_idx)
-            boardX.add_scalar("Train/Loss", train_loss, round_idx)
-
-            logger.info(stats)
-
-            stats = {'test_acc': test_acc, 'test_loss': test_loss}
-            wandb.log({"Test/Acc": test_acc, "round": round_idx})
-            wandb.log({"Test/Loss": test_loss, "round": round_idx})
-
-            boardX.add_scalar("Test/Acc", test_acc, round_idx)
-            boardX.add_scalar("Test/Loss", test_loss, round_idx)
-
-            logger.info(stats)
-
-        return test_acc
+        stats = {'test_acc': test_acc, 'test_loss': test_loss}
+        wandb.log({"Test/Acc": test_acc, "round": round_idx})
+        wandb.log({"Test/Loss": test_loss, "round": round_idx})
+        logger.info(stats)

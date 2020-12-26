@@ -1,7 +1,7 @@
 # ignore running results
-serial_edition/result
-serial_edition/runs
-serial_edition/__pycache__
-serial_edition/wandb
+src/result
+src/runs
+src/__pycache__
+src/wandb
 # ignore .vscode
 .vscode/

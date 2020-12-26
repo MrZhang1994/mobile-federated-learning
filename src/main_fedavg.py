@@ -7,6 +7,7 @@ import sys
 import time
 from datetime import datetime
 import csv
+import random
 
 # Maching learning tool chain.
 import numpy as np
@@ -243,6 +244,8 @@ def main():
     # We fix these two, so that we can reproduce the result.
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
+    random.seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
 
     # set if use logging debug version.
     logger.setLevel(logging.DEBUG)
@@ -259,7 +262,7 @@ def main():
         os.makedirs(path)
     path = path+'/'+str(args.method)[4:]+'_'+Time
     if os.path.exists(path) == False:
-        os.makedirs(path);
+        os.makedirs(path)
 
     # initialize some csv_writers
     para_record1 = open(path+'/trainer_'+str(args.method)[4:]+'_'+DAY+'_'+Time+'.csv', 'w', encoding='utf-8', newline='')
