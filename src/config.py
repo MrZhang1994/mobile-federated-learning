@@ -56,7 +56,7 @@ NAIVE_PG = True
 # Parameters for multi-layer PointerNetwork
 # ==========================
 FEATURE_DIMENSION = 4
-MAXIMUM_CLIENT_NUM_PLUS_ONE = 61
+MAXIMUM_CLIENT_NUM_PLUS_ONE = 80
 EMBEDDING_DIMENSION = 16
 HIDDEN_DIMENSION = 16
 LSTM_LAYERS_NUM = 1
