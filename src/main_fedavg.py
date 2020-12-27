@@ -77,7 +77,7 @@ def add_args():
     parser.add_argument('--comm_round', type=int, default=10,
                         help='how many round of communications we shoud use')
 
-    parser.add_argument('--frequency_of_the_test', type=int, default=2,
+    parser.add_argument('--frequency_of_the_test', type=int, default=10,
                         help='the frequency of the algorithms')
 
     parser.add_argument('--gpu', type=int, default=0,

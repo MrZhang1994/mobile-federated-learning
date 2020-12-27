@@ -70,9 +70,8 @@ class FedAvgTrainer(object):
         # Initialize values
         local_itr_lst = np.zeros((1, self.args.comm_round)) # historical local iterations.
         client_selec_lst = np.zeros((self.args.comm_round, int(client_num_in_total))) # historical client selections.
-        local_w_lst = [self.model_global.cpu().state_dict()] * int(client_num_in_total) # maintain a lst for all clients to store local weights
+        local_w_lst = [copy.deepcopy(self.model_global.cpu().state_dict())] * int(client_num_in_total) # maintain a lst for all clients to store local weights
         loss_locals = [] # initial a lst to store loss values
-        FPF1_idx_lst = np.zeros((1, int(client_num_in_total))) # maintain a lst for FPF1 indexes
         FPF2_idx_lst = np.zeros((1, int(client_num_in_total))) # maintain a lst for FPF2 indexes
         local_loss_lst = np.zeros((1, client_num_in_total)) # maintain a lst for local losses
         
@@ -178,6 +177,14 @@ class FedAvgTrainer(object):
 
             # update global weights
             w_glob = self.aggregate(w_locals)
+            # copy weight to net_glob
+            self.model_global.load_state_dict(w_glob)
+            
+           # update A_mat
+            for para in w_glob.keys():
+                A_mat[para] = A_mat[para] * (1 - 1/G2) + (w_glob[para].numpy().ravel() - last_w[para].numpy().ravel()) / G2
+            # update G_mat
+            G_mat = G_mat * (1 - 1 / G1) + np.dot(local_itr_lst, client_selec_lst) / G1
 
             # update the time counter
             if time_interval_lst:
@@ -202,16 +209,6 @@ class FedAvgTrainer(object):
             # set the time_counter 
             self.time_counter = np.array(channel_data['Time'][channel_data['Time'] > self.time_counter])[0]
             
-            # copy weight to net_glob
-            self.model_global.load_state_dict(w_glob)
-
-           # update A_mat
-            for para in w_glob.keys():
-                A_mat[para] = A_mat[para] * (1 - 1/G2) + (w_glob[para].numpy().ravel() - last_w[para].numpy().ravel()) / G2
-
-            # update G_mat
-            G_mat = G_mat * (1 - 1 / G1) + np.dot(local_itr_lst, client_selec_lst) / G1
-            
             # print loss
             if not loss_locals:
                 logger.info('Round {:3d}, Average loss None'.format(round_idx))
@@ -229,6 +226,7 @@ class FedAvgTrainer(object):
                 csv_writer1_line.append(test_acc)
             
             csv_writer1.writerow(csv_writer1_line)
+
 
     def tx_time(self, client_indexes):
         if not client_indexes:
