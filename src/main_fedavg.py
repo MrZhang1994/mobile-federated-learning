@@ -92,11 +92,11 @@ def add_args():
     # set the scheduler method
     parser.add_argument("-m", "--method", type= str, default="sch_random",
                         help="declare the benchmark methods you use") 
-                        """
-                        currently only 1. sch_mpn 2. sch_mpn_empty 3. sch_random
-                                       4. sch_channel 5. sch_rrobin 6. sch_loss are supported.
-                        sch_mpn_empty means sch_mpn without training.
-                        """               
+    """
+    currently only 1. sch_mpn 2. sch_mpn_empty 3. sch_random
+                    4. sch_channel 5. sch_rrobin 6. sch_loss are supported.
+    sch_mpn_empty means sch_mpn without training.
+    """               
 
     args = parser.parse_args()
     return args
