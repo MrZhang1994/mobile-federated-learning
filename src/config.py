@@ -68,11 +68,20 @@ csv_writer3.writerow(['time counter'] + ["car_"+str(i) for i in range(client_num
 # set the logger
 # ===============================
 logging.basicConfig(
-                    # filename = os.path.join(RESULT_PATH, "logfile.txt"),
-                    # filemode = "w+",
+                    filename = os.path.join(RESULT_PATH, "logfile.txt"),
+                    filemode = "w+",
                     format='%(name)s %(levelname)s %(message)s',
                     datefmt = "%H:%M:%S",
                     level=logging.DEBUG)
+# define a Handler which writes DEBUG messages or higher to the sys.stderr
+console = logging.StreamHandler()
+console.setLevel(logging.DEBUG)
+# set a format which is simpler for console use
+formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
+# tell the handler to use this format
+console.setFormatter(formatter)
+# add the handler to the root logger
+logging.getLogger().addHandler(console)
 logger = logging.getLogger("training")
 
 # ===============================

@@ -22,7 +22,7 @@ wandb login `Your ID`
 To test whether program are correctly configured, you can run following commands to see whether training process starts correctly.
 
 ```
-sh begin.sh
+sh begin.sh -[VERBOSE]
 ```
 
 Or, you can try other heterogeneous distribution (Non-IID) experiment:

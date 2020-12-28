@@ -44,19 +44,12 @@ class Reward:
         self.F_r_last = 0
 
     def calculate_reward(self, loss_locals, selection, FPF, time_length):
-        '''
+        """
+        loss_local: 1*M array
+        selection: 1*M array, binary
+        FPF: 1*M
         Calculate reward
-        '''
-        # loss_local: 1*M array
-        # selection: 1*M array, binary
-        # FPF: 1*M
-        #===============================================
-        # M = len(loss_locals[0])
-        # print(M)
-        # print(selection)
-        # print(loss_locals)
-        # print((selection))
-        # print((loss_locals.T).shape)
+        """
         if np.sum(selection) == 0:
             return 0
         ALPHA = 1
@@ -64,11 +57,8 @@ class Reward:
         M = len(loss_locals[0])
 
         self.F_r = np.matmul(selection,loss_locals.T)/(np.sum(selection))
-        # self.F_r = np.sum(loss_locals)/(np.sum(selection))
-        
         self.F_r = float(self.F_r)
-        # print("self.F_r="+str(self.F_r))
-        # float(np.matmul(FPF,(loss_locals.T)))
+
         Reward = ALPHA*(self.F_r_last-self.F_r)/(time_length*self.F_r)+BETA*float(np.matmul(FPF,(loss_locals.T))/np.sum(selection)-np.sum(FPF)/M)
         self.F_r_last = self.F_r
         Reward = 100000*Reward
@@ -82,7 +72,6 @@ class Environment:
         self.a = None
 
     def update(self, time_counter):
-
         cars = list(channel_data[channel_data['Time'] == time_counter]['Car'])
         Distance = list(channel_data[channel_data['Time'] == time_counter]['Distance to BS(4982,905)'])
 
@@ -105,15 +94,12 @@ class Scheduler_MPN:
         self.agent = ddpg_mpn.DDPG(LSTM_LAYERS_NUM, EMBEDDING_DIMENSION, HIDDEN_DIMENSION, LSTM_LAYERS_NUM)
         self.env = Environment()
 
-
         self.FPF1_idx_lst = []
         self.time_counter_last = 0
-
 
         self.state_last = None
         self.action_last = None
         self.available_car = None
-
 
     def sch_mpn_empty(self, round_idx, time_counter, csv_writer2):
         channel_state, self.available_car = self.env.update(time_counter)
@@ -213,7 +199,7 @@ class Scheduler_MPN:
         self.action_last = [itr_num, pointer, hidden_states]
         self.state_last = state
         self.time_counter_last = time_counter
-        
+
         csv_writer2.writerow([time_counter, str(self.available_car[0].tolist()),\
                                 str(state[0].tolist()), str(pointer),\
                                 str(client_indexes), itr_num])
