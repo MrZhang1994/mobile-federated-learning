@@ -4,8 +4,6 @@ import socket
 import argparse
 import numpy as np
 import pandas as pd
-import os
-import logging
 import time
 import copy
 
@@ -18,24 +16,17 @@ EMBEDDING_DIMENSION = config.EMBEDDING_DIMENSION
 HIDDEN_DIMENSION = config.HIDDEN_DIMENSION
 LSTM_LAYERS_NUM = config.LSTM_LAYERS_NUM
 
-
+# set channel_data
+channel_data = config.channel_data
 
 # set the logger
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger('schedule')
-
-# set the data dir & read the data
-channel_data_dir = "../data"
-channel_data = pd.concat(
-    [pd.read_csv(os.path.join(channel_data_dir, csv_name), error_bad_lines=False) for csv_name in os.listdir(channel_data_dir)],
-    ignore_index=True)
+logger = config.logger_sch
 
 # used for round robin
 queue = []
 # used for sch_loss
 prev_cars = []
 loss_locals = []
-
 
 
 class Reward:
@@ -74,7 +65,6 @@ class Environment:
     def update(self, time_counter):
         cars = list(channel_data[channel_data['Time'] == time_counter]['Car'])
         Distance = list(channel_data[channel_data['Time'] == time_counter]['Distance to BS(4982,905)'])
-
 
         channel_state = np.zeros((1, len(cars)))
         available_car = np.zeros((1, len(cars)))

@@ -246,8 +246,10 @@ def main():
 
     # set if use logging debug version.
     logger.setLevel(logging.DEBUG)
+    logger_sch.setLevel(logging.DEBUG)
     if not args.verbose:
         logger.setLevel(logging.INFO)
+        logger_sch.setLevel(logging.INFO)
     logger.debug("--------DEBUG enviroment start---------")
     
     # show the upate information
