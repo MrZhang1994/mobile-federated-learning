@@ -67,7 +67,9 @@ class FedAvgTrainer(object):
 
 
     def train(self):
-        # Initialize values
+        """
+        Initialize values
+        """
         local_itr_lst = np.zeros((1, self.args.comm_round)) # historical local iterations.
         client_selec_lst = np.zeros((self.args.comm_round, int(client_num_in_total))) # historical client selections.
         local_w_lst = [copy.deepcopy(self.model_global.cpu().state_dict())] * int(client_num_in_total) # maintain a lst for all clients to store local weights
@@ -84,14 +86,14 @@ class FedAvgTrainer(object):
             weight_shape = self.model_global.state_dict()[para].numpy().ravel().shape[0]
             A_mat[para] = np.ones(weight_shape) # initial the value of A with zero.
         G_mat = np.zeros((1, int(client_num_in_total))) # initial the value of G with zero
-
+        """
+        starts training, entering the loop of command round.
+        """
         for round_idx in range(self.args.comm_round):
             logger.info("################Communication round : {}".format(round_idx))
             logger.info("time_counter: {}".format(self.time_counter))
 
-            csv_writer1_line = []
-            csv_writer1_line.append(round_idx)
-            csv_writer1_line.append(self.time_counter)
+            csv_writer1_line = [round_idx, self.time_counter]
             
             self.model_global.train()
             
@@ -103,9 +105,10 @@ class FedAvgTrainer(object):
                 else:
                     client_indexes, local_itr = self.scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst[0], local_loss_lst, csv_writer2)
             else:
+                client_indexes, local_itr = self.scheduler(round_idx, self.time_counter)
                 if round_idx == 0:
-                    csv_writer2.writerow(['time counter', 'client index', 'iteration', 'reward'])
-                client_indexes, local_itr = self.scheduler(round_idx, self.time_counter, csv_writer2)
+                    csv_writer2.writerow(['time counter', 'client index', 'iteration'])
+                csv_writer2.writerow([self.time_counter, str(client_indexes), local_itr])
             
             # contribute to time counter
             self.tx_time(client_indexes) # transmit time

@@ -16,15 +16,6 @@ channel_data = pd.concat([pd.read_csv(CHANNEL_DATA_DIR+'/'+str(csv_name)+'.csv'
 client_num_in_total = channel_data['Car'].max() + 1
 client_num_per_round = 100 # number of local clients
 
-# set the logger
-logging.basicConfig(
-                    # filename = "logfile",
-                    # filemode = "w+",
-                    format='%(name)s %(levelname)s %(message)s',
-                    datefmt = "%H:%M:%S",
-                    level=logging.DEBUG)
-logger = logging.getLogger("training")
-
 # setup the tensorboardX
 boardX = SummaryWriter(comment="fedavg")
 
@@ -72,6 +63,17 @@ csv_writer3 = csv.writer(open(
     newline='')
     )
 csv_writer3.writerow(['time counter'] + ["car_"+str(i) for i in range(client_num_in_total)])
+
+# ===============================
+# set the logger
+# ===============================
+logging.basicConfig(
+                    # filename = os.path.join(RESULT_PATH, "logfile.txt"),
+                    # filemode = "w+",
+                    format='%(name)s %(levelname)s %(message)s',
+                    datefmt = "%H:%M:%S",
+                    level=logging.DEBUG)
+logger = logging.getLogger("training")
 
 # ===============================
 # set hyperparameters for Trainer

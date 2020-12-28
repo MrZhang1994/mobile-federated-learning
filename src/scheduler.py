@@ -1,4 +1,3 @@
-# ************************************************************************************************************ #
 # import libraries
 import re
 import socket
@@ -100,9 +99,6 @@ class Environment:
         return channel_state, available_car
 
     
-
-
-
 class Scheduler_MPN:
     def __init__(self):
         self.rwd = Reward()
@@ -166,18 +162,10 @@ class Scheduler_MPN:
     def sch_mpn(self, round_idx, time_counter, loss_locals, FPF_idx_lst, local_loss_lst, csv_writer2):
         # ================================================================================================
         # calculate reward
-        csv_writer2_line = []
-        csv_writer2_line.append(time_counter)
         selection = np.zeros((1, len(self.available_car[0])))
         FPF = np.zeros((1, len(self.available_car[0])))
         loss_local = np.zeros((1, len(self.available_car[0])))
         pointer = self.action_last[1]
-        
-        # print(self.available_car[0])
-        # print(pointer)
-        # print(FPF_idx_lst)
-        # print(len(FPF_idx_lst))
-        # print(loss_locals)
 
         if len(pointer)>0:
             for i in range(len(pointer)):
@@ -185,17 +173,11 @@ class Scheduler_MPN:
                 FPF[0, int(pointer[i])] = FPF_idx_lst[int(self.available_car[0, int(pointer[i])])]
                 loss_local[0, int(pointer[i])] = loss_locals[i]
         
-        # print(pointer)
-        # print(selection[0])
         time_length = time_counter - self.time_counter_last
         reward = self.rwd.calculate_reward(loss_local, selection, FPF, time_length)
-        # print(reward)
         # ================================================================================================
         # update state
         channel_state, self.available_car = self.env.update(time_counter)
-
-        csv_writer2_line.append(str(self.available_car[0].tolist()))
-        csv_writer2_line.append(str(channel_state[0].tolist()))
 
         state = np.zeros((1, len(self.available_car[0]), 3))
         for i in range(len(self.available_car[0])):
@@ -220,7 +202,7 @@ class Scheduler_MPN:
             itr_num, pointer, hidden_states = self.agent.choose_action_withAmender(state)
         else:
             itr_num, pointer, hidden_states = self.agent.choose_action(state)
-        csv_writer2_line.append(str(pointer))
+        
         client_indexes = []
         if len(pointer) != 0:
             for i in range(len(pointer)):
@@ -231,15 +213,15 @@ class Scheduler_MPN:
         self.action_last = [itr_num, pointer, hidden_states]
         self.state_last = state
         self.time_counter_last = time_counter
-        csv_writer2_line.append(str(client_indexes))
-        csv_writer2_line.append(local_itr)
-        csv_writer2_line.append(reward)
-        csv_writer2.writerow(csv_writer2_line+loss)
+        
+        csv_writer2.writerow([time_counter, str(self.available_car[0].tolist()),\
+                                str(state[0].tolist()), str(pointer),\
+                                str(client_indexes), itr_num])
 
         return client_indexes, local_itr
 
 
-def sch_random(round_idx, time_counter, csv_writer2):
+def sch_random(round_idx, time_counter):
     # set the seed
     np.random.seed(round_idx)
 
@@ -252,12 +234,11 @@ def sch_random(round_idx, time_counter, csv_writer2):
 
     # random local iterations
     local_itr = np.random.randint(2) + 1
-    csv_writer2.writerow([time_counter, str(client_indexes), local_itr])
     return client_indexes, local_itr
 
 
 
-def sch_channel(round_idx, time_counter, csv_writer2):
+def sch_channel(round_idx, time_counter):
     # set the seed
     np.random.seed(round_idx)
 
@@ -265,18 +246,15 @@ def sch_channel(round_idx, time_counter, csv_writer2):
     curr_channel = channel_data[channel_data['Time'] == time_counter]
     curr_channel = curr_channel.sort_values(by=['Distance to BS(4982,905)'],
                                             ascending=True)  # sort by the channel condition
-    # print(curr_channel)
-    # print(int((len(curr_channel)+1)/2))
 
     client_indexes = ((curr_channel.iloc[:int((len(curr_channel) + 1) / 2),:]).loc[:, 'Car']).tolist()
 
     # random local iterations
     local_itr = np.random.randint(2) + 1
-    csv_writer2.writerow([time_counter, str(client_indexes), local_itr])
     return client_indexes, local_itr
  
 
-def sch_rrobin(round_idx, time_counter, csv_writer2):
+def sch_rrobin(round_idx, time_counter):
     # set the seed
     np.random.seed(round_idx)
 
@@ -290,15 +268,12 @@ def sch_rrobin(round_idx, time_counter, csv_writer2):
         if car_temp in cars:  # add the car exist in the current time
             client_indexes.append(car_temp)
 
-    # logger.info("client_indexes = " + str(client_indexes) + "; time_counter = " + str(time_counter))
-
     # random local iterations
     local_itr = np.random.randint(2) + 1
-    csv_writer2.writerow([time_counter, str(client_indexes), local_itr])
     return client_indexes, local_itr
 
 
-def sch_loss(round_idx, time_counter, csv_writer2):
+def sch_loss(round_idx, time_counter):
     cars = list(channel_data[channel_data['Time'] == time_counter]['Car'])
 
     if len(loss_locals) == 0:  # no loss value before, random choose
@@ -321,6 +296,4 @@ def sch_loss(round_idx, time_counter, csv_writer2):
     prev_cars.extend(cars)  # used for next time calling scheduler
     # random local iterations
     local_itr = np.random.randint(2) + 1
-
-    csv_writer2.writerow([time_counter, str(client_indexes), local_itr])
     return client_indexes, local_itr
