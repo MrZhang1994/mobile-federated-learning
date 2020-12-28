@@ -278,7 +278,7 @@ def main():
             exit(1)
     else:
         logger.error("Plz choose other machine with GPU to run the program")
-        exit(2)
+        exit(1)
     device = torch.device("cuda:" + str(args.gpu))
     logger.debug(device)
 

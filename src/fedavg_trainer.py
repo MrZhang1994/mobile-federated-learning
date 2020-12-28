@@ -101,9 +101,9 @@ class FedAvgTrainer(object):
                 if round_idx == 0:
                     csv_writer2.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'reward', 'loss_a', 'loss_c'])
                 if self.args.method == "sch_mpn_empty":
-                    client_indexes, local_itr = self.scheduler.sch_mpn_empty(round_idx, self.time_counter, csv_writer2)
+                    client_indexes, local_itr = self.scheduler.sch_mpn_empty(round_idx, self.time_counter)
                 else:
-                    client_indexes, local_itr = self.scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst[0], local_loss_lst, csv_writer2)
+                    client_indexes, local_itr = self.scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst[0], local_loss_lst)
             else:
                 client_indexes, local_itr = self.scheduler(round_idx, self.time_counter)
                 if round_idx == 0:

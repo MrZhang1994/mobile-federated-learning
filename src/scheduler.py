@@ -10,6 +10,7 @@ import copy
 import ddpg_mpn
 import config
 
+# get some global variables
 MEMORY_CAPACITY = config.MEMORY_CAPACITY
 MAXIMUM_ITERATION_NUM = config.MAXIMUM_ITERATION_NUM
 EMBEDDING_DIMENSION = config.EMBEDDING_DIMENSION
@@ -21,6 +22,9 @@ channel_data = config.channel_data
 
 # set the logger
 logger = config.logger_sch
+
+# set the csv_writer
+csv_writer2 = config.csv_writer2
 
 # used for round robin
 queue = []
@@ -91,7 +95,7 @@ class Scheduler_MPN:
         self.action_last = None
         self.available_car = None
 
-    def sch_mpn_empty(self, round_idx, time_counter, csv_writer2):
+    def sch_mpn_empty(self, round_idx, time_counter):
         channel_state, self.available_car = self.env.update(time_counter)
         state = np.zeros((1, len(self.available_car[0]), 3))
         for i in range(len(self.available_car[0])):
@@ -134,8 +138,7 @@ class Scheduler_MPN:
 
         return client_indexes, local_itr   
 
-
-    def sch_mpn(self, round_idx, time_counter, loss_locals, FPF_idx_lst, local_loss_lst, csv_writer2):
+    def sch_mpn(self, round_idx, time_counter, loss_locals, FPF_idx_lst, local_loss_lst):
         # ================================================================================================
         # calculate reward
         selection = np.zeros((1, len(self.available_car[0])))
@@ -193,9 +196,7 @@ class Scheduler_MPN:
         csv_writer2.writerow([time_counter, str(self.available_car[0].tolist()),\
                                 str(state[0].tolist()), str(pointer),\
                                 str(client_indexes), itr_num])
-
         return client_indexes, local_itr
-
 
 def sch_random(round_idx, time_counter):
     # set the seed
@@ -212,8 +213,6 @@ def sch_random(round_idx, time_counter):
     local_itr = np.random.randint(2) + 1
     return client_indexes, local_itr
 
-
-
 def sch_channel(round_idx, time_counter):
     # set the seed
     np.random.seed(round_idx)
@@ -229,7 +228,6 @@ def sch_channel(round_idx, time_counter):
     local_itr = np.random.randint(2) + 1
     return client_indexes, local_itr
  
-
 def sch_rrobin(round_idx, time_counter):
     # set the seed
     np.random.seed(round_idx)
@@ -247,7 +245,6 @@ def sch_rrobin(round_idx, time_counter):
     # random local iterations
     local_itr = np.random.randint(2) + 1
     return client_indexes, local_itr
-
 
 def sch_loss(round_idx, time_counter):
     cars = list(channel_data[channel_data['Time'] == time_counter]['Car'])
