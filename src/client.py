@@ -53,7 +53,7 @@ class Client:
         time_start = float(time.time()) 
         # initial epoch loss
         epoch_loss = []
-        for epoch in range(self.args.epochs * local_iteration): # epochs = epochs * local_itr
+        for epoch in range(local_iteration): # epochs = epochs * local_itr
             batch_loss = []
             for batch_idx, (x, labels) in enumerate(self.local_training_data):
                 x, labels = x.to(self.device), labels.to(self.device)

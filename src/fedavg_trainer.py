@@ -96,9 +96,10 @@ class FedAvgTrainer(object):
             self.model_global.train()
             
             if self.args.method == "sch_mpn" or self.args.method == "sch_mpn_empty":
-                if round_idx == 0 or self.args.method == "sch_mpn_empty":
+                if round_idx == 0:
                     csv_writer2.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'reward', 'loss_a', 'loss_c'])
-                    client_indexes, local_itr = self.scheduler.sch_mpn_initial(round_idx, self.time_counter, csv_writer2)
+                if self.args.method == "sch_mpn_empty":
+                    client_indexes, local_itr = self.scheduler.sch_mpn_empty(round_idx, self.time_counter, csv_writer2)
                 else:
                     client_indexes, local_itr = self.scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst[0], local_loss_lst, csv_writer2)
             else:
@@ -305,13 +306,6 @@ class FedAvgTrainer(object):
             test_metrics['num_samples'].append(copy.deepcopy(test_local_metrics['test_total']))
             test_metrics['num_correct'].append(copy.deepcopy(test_local_metrics['test_correct']))
             test_metrics['losses'].append(copy.deepcopy(test_local_metrics['test_loss']))
-
-            """
-            Note: CI environment is CPU-based computing. 
-            The training speed for RNN training is to slow in this setting, so we only test a client to make sure there is no programming error.
-            """
-            if self.args.ci == 1:
-                break
 
         # test on training dataset
         train_acc = sum(train_metrics['num_correct']) / sum(train_metrics['num_samples'])

@@ -119,14 +119,14 @@ class Scheduler_MPN:
         self.available_car = None
 
 
-    def sch_mpn_initial(self, round_idx, time_counter, csv_writer2):
+    def sch_mpn_empty(self, round_idx, time_counter, csv_writer2):
         channel_state, self.available_car = self.env.update(time_counter)
         state = np.zeros((1, len(self.available_car[0]), 3))
         for i in range(len(self.available_car[0])):
             state[0, i, 0] = channel_state[0, i]
             state[0, i, 1] = 0
             state[0, i, 2] = 0
-        itr_num, pointer, hidden_states = self.agent.choose_action(state)
+        itr_num, pointer, hidden_states = self.agent.choose_action_withAmender(state)
 
         self.action_last = [itr_num, pointer, hidden_states]
         self.state_last = state

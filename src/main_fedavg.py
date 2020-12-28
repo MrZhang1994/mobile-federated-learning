@@ -16,7 +16,7 @@ from fedavg_trainer import FedAvgTrainer
 from config import *
 
 # add the root dir of FedML
-sys.path.insert(0, os.path.abspath("/home/zzp1012/FedML")) 
+sys.path.insert(0, os.path.abspath("/zzp/FedML")) 
 
 from fedml_api.data_preprocessing.cifar10.data_loader import load_partition_data_cifar10
 from fedml_api.data_preprocessing.cifar100.data_loader import load_partition_data_cifar100
@@ -71,13 +71,10 @@ def add_args():
 
     parser.add_argument('--wd', help='weight decay parameter;', type=float, default=0.001)
 
-    parser.add_argument('--epochs', type=int, default=5, metavar='EP',
-                        help='how many epochs will be trained locally')
-
-    parser.add_argument('--comm_round', type=int, default=10,
+    parser.add_argument('--comm_round', type=int, default=1000,
                         help='how many round of communications we shoud use')
 
-    parser.add_argument('--frequency_of_the_test', type=int, default=10,
+    parser.add_argument('--frequency_of_the_test', type=int, default=25,
                         help='the frequency of the algorithms')
 
     parser.add_argument('--gpu', type=int, default=0,
@@ -273,7 +270,14 @@ def main():
     logger.debug("client_num_in_total: {}".format(client_num_per_round))
 
     logger.debug("---------cuda device setting-----------")
-    device = torch.device("cuda:" + str(args.gpu) if torch.cuda.is_available() else "cpu")
+    if torch.cuda.is_available():
+        if args.gpu >= torch.cuda.device_count():
+            logger.error("CUDA error, invalid device ordinal")
+            exit(1)
+    else:
+        logger.error("Plz choose other machine with GPU to run the program")
+        exit(2)
+    device = torch.device("cuda:" + str(args.gpu))
     logger.debug(device)
 
     # load data
@@ -290,7 +294,7 @@ def main():
     # initialize the wandb.
     wandb.init(
         project="fedavg",
-        name="FedAVG-" + str(args.method)[4:] + "-r" + str(args.comm_round) + "-e" + str(args.epochs) + "-lr" + str(args.lr),
+        name="FedAVG-" + str(args.method)[4:] + "-r" + str(args.comm_round) + "-lr" + str(args.lr),
         config=args
     )
 

@@ -14,15 +14,13 @@ DISTRIBUTION=$6
 
 ROUND=$7
 
-EPOCH=$8
+LR=$8
 
-LR=$9
+OPT=$9
 
-OPT=$10
+METHOD=$10
 
-METHOD=$11
-
-VERBOSE=$12 #-v
+VERBOSE=$11 #-v
 
 if [ $METHOD = "all" ]; then
     python3 ./main_fedavg.py \
@@ -32,7 +30,6 @@ if [ $METHOD = "all" ]; then
     --model $MODEL \
     --partition_method $DISTRIBUTION  \
     --comm_round $ROUND \
-    --epochs $EPOCH \
     --batch_size $BATCH_SIZE \
     --client_optimizer $OPT \
     --lr $LR \
@@ -46,7 +43,6 @@ if [ $METHOD = "all" ]; then
     --model $MODEL \
     --partition_method $DISTRIBUTION  \
     --comm_round $ROUND \
-    --epochs $EPOCH \
     --batch_size $BATCH_SIZE \
     --client_optimizer $OPT \
     --lr $LR \
@@ -61,7 +57,6 @@ if [ $METHOD = "all" ]; then
     --model $MODEL \
     --partition_method $DISTRIBUTION  \
     --comm_round $ROUND \
-    --epochs $EPOCH \
     --batch_size $BATCH_SIZE \
     --client_optimizer $OPT \
     --lr $LR \
@@ -75,7 +70,6 @@ if [ $METHOD = "all" ]; then
     --model $MODEL \
     --partition_method $DISTRIBUTION  \
     --comm_round $ROUND \
-    --epochs $EPOCH \
     --batch_size $BATCH_SIZE \
     --client_optimizer $OPT \
     --lr $LR \
@@ -90,7 +84,6 @@ if [ $METHOD = "all" ]; then
     --model $MODEL \
     --partition_method $DISTRIBUTION  \
     --comm_round $ROUND \
-    --epochs $EPOCH \
     --batch_size $BATCH_SIZE \
     --client_optimizer $OPT \
     --lr $LR \
@@ -104,7 +97,6 @@ else
     --model $MODEL \
     --partition_method $DISTRIBUTION  \
     --comm_round $ROUND \
-    --epochs $EPOCH \
     --batch_size $BATCH_SIZE \
     --client_optimizer $OPT \
     --lr $LR \
