@@ -39,7 +39,7 @@ class FedAvgTrainer(object):
         self.model_global.train()
 
         # initialize the scheduler function
-        if self.args.method == "sch_mpn":
+        if self.args.method == "sch_mpn" or self.args.method == "sch_mpn_empty":
             for _ in range(100):
                 self.scheduler = sch.Scheduler_MPN()
                 client_indexes, local_itr = self.scheduler.sch_mpn_test(1, 2002)
@@ -95,8 +95,8 @@ class FedAvgTrainer(object):
             
             self.model_global.train()
             
-            if self.args.method == "sch_mpn":
-                if round_idx == 0:
+            if self.args.method == "sch_mpn" or self.args.method == "sch_mpn_empty":
+                if round_idx == 0 or self.args.method == "sch_mpn_empty":
                     csv_writer2.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'reward', 'loss_a', 'loss_c'])
                     client_indexes, local_itr = self.scheduler.sch_mpn_initial(round_idx, self.time_counter, csv_writer2)
                 else:

@@ -141,10 +141,6 @@ class Scheduler_MPN:
                                 str(state[0].tolist()), str(pointer),\
                                 str(client_indexes), itr_num])
         return client_indexes, local_itr        
-        # s_client_indexes = str(list(client_indexes))[1:-1].replace(',', '')
-        # s_local_itr = str(local_itr)                
-
-        # return s_client_indexes + "," + s_local_itr         
 
     def sch_mpn_test(self, round_idx, time_counter):
         channel_state, self.available_car = self.env.update(time_counter)
