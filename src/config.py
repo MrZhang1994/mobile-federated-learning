@@ -4,6 +4,9 @@ from datetime import datetime
 import pandas as pd
 from tensorboardX import SummaryWriter
 
+# ===============================
+# process the channel data
+# ===============================
 # set the data dir
 CHANNEL_DATA_DIR = "../data"
 DATE_LENGTH = 10
@@ -15,10 +18,14 @@ channel_data = pd.concat([pd.read_csv(CHANNEL_DATA_DIR+'/'+str(csv_name)+'.csv'
 client_num_in_total = channel_data['Car'].max() + 1
 client_num_per_round = 100 # number of local clients
 
+# ===============================
 # setup the tensorboardX
+# ===============================
 boardX = SummaryWriter(comment="fedavg")
 
+# ===============================
 # set up threads for numpy
+# ===============================
 os.environ['NUMEXPR_MAX_THREADS'] = str(os.cpu_count())
 os.environ['NUMEXPR_NUM_THREADS'] = str(round(os.cpu_count() / 2))
 

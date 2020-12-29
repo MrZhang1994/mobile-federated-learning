@@ -93,9 +93,7 @@ class FedAvgTrainer(object):
         for round_idx in range(self.args.comm_round):
             logger.info("################Communication round : {}".format(round_idx))
             logger.info("time_counter: {}".format(self.time_counter))
-
-            trainer_csv_line = [round_idx, self.time_counter]
-            
+   
             self.model_global.train()
             
             if self.args.method == "sch_mpn" or self.args.method == "sch_mpn_empty":
@@ -112,12 +110,13 @@ class FedAvgTrainer(object):
                     csv_writer.writerow([self.time_counter, str(client_indexes), local_itr])
                     file.flush()
             
+            # write one line to trainer_csv
+            trainer_csv_line = [round_idx, self.time_counter, str(client_indexes)]
+
             # contribute to time counter
             self.tx_time(client_indexes) # transmit time
             logger.info("client_indexes = " + str(client_indexes))
             
-            trainer_csv_line.append(str(client_indexes))
-
             # store the last model's training parameters.
             last_w = self.model_global.cpu().state_dict() 
             
@@ -235,6 +234,7 @@ class FedAvgTrainer(object):
                 test_acc = self.local_test_on_all_clients(self.model_global, round_idx)
                 
                 trainer_csv_line.append(test_acc)
+            
             # write headers for csv
             with open(trainer_csv, mode = "a+", encoding='utf-8', newline='') as file:
                 csv_writer = csv.writer(file)
