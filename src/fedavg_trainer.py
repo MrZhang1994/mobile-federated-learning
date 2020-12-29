@@ -3,6 +3,7 @@ import copy
 import wandb
 import time
 import math
+import csv
 
 import torch
 import numpy as np
@@ -93,27 +94,29 @@ class FedAvgTrainer(object):
             logger.info("################Communication round : {}".format(round_idx))
             logger.info("time_counter: {}".format(self.time_counter))
 
-            csv_writer1_line = [round_idx, self.time_counter]
+            trainer_csv_line = [round_idx, self.time_counter]
             
             self.model_global.train()
             
             if self.args.method == "sch_mpn" or self.args.method == "sch_mpn_empty":
-                if round_idx == 0:
-                    csv_writer2.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'reward', 'loss_a', 'loss_c'])
                 if self.args.method == "sch_mpn_empty":
                     client_indexes, local_itr = self.scheduler.sch_mpn_empty(round_idx, self.time_counter)
                 else:
                     client_indexes, local_itr = self.scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst[0], local_loss_lst)
             else:
                 client_indexes, local_itr = self.scheduler(round_idx, self.time_counter)
-                if round_idx == 0:
-                    csv_writer2.writerow(['time counter', 'client index', 'iteration'])
-                csv_writer2.writerow([self.time_counter, str(client_indexes), local_itr])
+                with open(scheduler_csv, mode = "a+", encoding='utf-8', newline='') as file:
+                    csv_writer = csv.writer(file)
+                    if round_idx == 0:
+                        csv_writer.writerow(['time counter', 'client index', 'iteration'])
+                    csv_writer.writerow([self.time_counter, str(client_indexes), local_itr])
+                    file.flush()
             
             # contribute to time counter
             self.tx_time(client_indexes) # transmit time
             logger.info("client_indexes = " + str(client_indexes))
-            csv_writer1_line.append(str(client_indexes))
+            
+            trainer_csv_line.append(str(client_indexes))
 
             # store the last model's training parameters.
             last_w = self.model_global.cpu().state_dict() 
@@ -177,7 +180,13 @@ class FedAvgTrainer(object):
             # update FPF index list
             FPF2_idx_lst = FPF2_cal(local_w_lst)
             
-            csv_writer3.writerow([self.time_counter]+FPF2_idx_lst[0].tolist())
+            # write FPF index list to csv
+            with open(FPF_csv, mode = "a+", encoding='utf-8', newline='') as file:
+                csv_writer = csv.writer(file)
+                if round_idx == 0:
+                    csv_writer.writerow(['time counter'] + ["car_"+str(i) for i in range(client_num_in_total)])
+                csv_writer.writerow([self.time_counter]+FPF2_idx_lst[0].tolist())
+                file.flush()
 
             # update global weights
             w_glob = self.aggregate(w_locals)
@@ -195,9 +204,7 @@ class FedAvgTrainer(object):
                 self.time_counter += math.ceil(TIME_COMPRESSION_RATIO*(sum(time_interval_lst) / len(time_interval_lst)))
             logger.debug("time_counter after training: {}".format(self.time_counter))
             
-            csv_writer1_line.append(self.time_counter-csv_writer1_line[1])
-            csv_writer1_line.append(np.var(local_loss_lst))
-            csv_writer1_line.append(str(loss_list))
+            trainer_csv_line += [self.time_counter-trainer_csv_line[1], np.var(local_loss_lst), str(loss_list)]
             
             # if current time_counter has exceed the channel table, I will simply stop early
             if self.time_counter >= channel_data["Time"].max():
@@ -217,21 +224,25 @@ class FedAvgTrainer(object):
             if not loss_locals:
                 logger.info('Round {:3d}, Average loss None'.format(round_idx))
                 
-                csv_writer1_line.append('None')
+                trainer_csv_line.append('None')
             else:
                 loss_avg = sum(loss_locals) / len(loss_locals)
                 logger.info('Round {:3d}, Average loss {:.3f}'.format(round_idx, loss_avg))
                 
-                csv_writer1_line.append(loss_avg)
+                trainer_csv_line.append(loss_avg)
 
             if round_idx % self.args.frequency_of_the_test == 0 or round_idx == self.args.comm_round - 1:
                 test_acc = self.local_test_on_all_clients(self.model_global, round_idx)
                 
-                csv_writer1_line.append(test_acc)
-            
-            csv_writer1.writerow(csv_writer1_line)
-
-
+                trainer_csv_line.append(test_acc)
+            # write headers for csv
+            with open(trainer_csv, mode = "a+", encoding='utf-8', newline='') as file:
+                csv_writer = csv.writer(file)
+                if round_idx == 0:
+                    csv_writer.writerow(['round index', 'time counter', 'client index', 'train time', 'fairness', 'local loss', 'global loss', 'test accuracy'])
+                csv_writer.writerow(trainer_csv_line)
+                file.flush()
+           
     def tx_time(self, client_indexes):
         if not client_indexes:
             self.time_counter += 1

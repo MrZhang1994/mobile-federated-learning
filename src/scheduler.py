@@ -2,6 +2,7 @@
 import re
 import socket
 import argparse
+import csv
 import numpy as np
 import pandas as pd
 import time
@@ -23,8 +24,8 @@ channel_data = config.channel_data
 # set the logger
 logger = config.logger_sch
 
-# set the csv_writer
-csv_writer2 = config.csv_writer2
+# set the csv
+scheduler_csv = config.scheduler_csv
 
 # used for round robin
 queue = []
@@ -113,9 +114,14 @@ class Scheduler_MPN:
                 client_indexes.append(int(self.available_car[0, pointer[i]]))
         local_itr = itr_num
 
-        csv_writer2.writerow([time_counter, str(self.available_car[0].tolist()),\
-                                str(state[0].tolist()), str(pointer),\
-                                str(client_indexes), itr_num])
+        with open(scheduler_csv, mode = "w+", encoding='utf-8', newline='') as file:
+            csv_writer = csv.writer(file)
+            if round_idx == 0:
+                csv_writer.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'reward', 'loss_a', 'loss_c'])
+            csv_writer.writerow([time_counter, str(self.available_car[0].tolist()),\
+                                    str(state[0].tolist()), str(pointer),\
+                                    str(client_indexes), itr_num])
+            file.flush()
         return client_indexes, local_itr        
 
     def sch_mpn_test(self, round_idx, time_counter):
@@ -193,9 +199,14 @@ class Scheduler_MPN:
         self.state_last = state
         self.time_counter_last = time_counter
 
-        csv_writer2.writerow([time_counter, str(self.available_car[0].tolist()),\
-                                str(state[0].tolist()), str(pointer),\
-                                str(client_indexes), itr_num])
+        with open(scheduler_csv, mode = "w+", encoding='utf-8', newline='') as file:
+            csv_writer = csv.writer(file)
+            if round_idx == 0:
+                csv_writer.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'reward', 'loss_a', 'loss_c'])
+            csv_writer.writerow([time_counter, str(self.available_car[0].tolist()),\
+                                    str(state[0].tolist()), str(pointer),\
+                                    str(client_indexes), itr_num])
+            file.flush()
         return client_indexes, local_itr
 
 def sch_random(round_idx, time_counter):

@@ -1,5 +1,4 @@
 import os
-import csv
 import logging
 from datetime import datetime
 import pandas as pd
@@ -33,42 +32,16 @@ RESULT_PATH = os.path.join("result", DAY, MOMENT)
 if os.path.exists(RESULT_PATH) == False:
     os.makedirs(RESULT_PATH)
 
-# initialize some csv_writers
-csv_writer1 = csv.writer(open(
-    os.path.join(RESULT_PATH, "-".join(["trainer", DAY, MOMENT]) + '.csv'), # file name
-    'w+', # write mode
-    encoding='utf-8', # encode mode 
-    newline='')
-    )
-csv_writer1.writerow(['round index',
-                      'time counter',
-                      'client index',
-                      'train time', 
-                      'fairness', 
-                      'local loss', 
-                      'global loss', 
-                      'test accuracy'])
-
-csv_writer2 = csv.writer(open(
-    os.path.join(RESULT_PATH, "-".join(["scheduler", DAY, MOMENT]) + '.csv'), # file name
-    'w+', # write mode
-    encoding='utf-8', # encode mode 
-    newline='')
-    )
-
-csv_writer3 = csv.writer(open(
-    os.path.join(RESULT_PATH, "-".join(["FPF", DAY, MOMENT]) + '.csv'), # file name
-    'w+', # write mode
-    encoding='utf-8', # encode mode 
-    newline='')
-    )
-csv_writer3.writerow(['time counter'] + ["car_"+str(i) for i in range(client_num_in_total)])
+# initialize some csv_writers name
+trainer_csv = os.path.join(RESULT_PATH, "-".join(["trainer", DAY, MOMENT]) + '.csv') # file name
+scheduler_csv = os.path.join(RESULT_PATH, "-".join(["scheduler", DAY, MOMENT]) + '.csv')# file name
+FPF_csv = os.path.join(RESULT_PATH, "-".join(["FPF", DAY, MOMENT]) + '.csv') # file name
 
 # ===============================
 # set the logger
 # ===============================
 logging.basicConfig(
-                    filename = os.path.join(RESULT_PATH, "logfile.txt"),
+                    filename = os.path.join(RESULT_PATH, "-".join(["logfile", DAY, MOMENT]) + ".txt"),
                     filemode = "w+",
                     format='%(name)s %(levelname)s %(message)s',
                     datefmt = "%H:%M:%S",
