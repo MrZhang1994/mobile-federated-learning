@@ -5,3 +5,5 @@ src/__pycache__
 src/wandb
 # ignore .vscode
 .vscode/
+# ignore results
+outs/
