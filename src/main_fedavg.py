@@ -87,17 +87,19 @@ def add_args():
     parser.add_argument("-v", "--verbose", action= "store_true", dest= "verbose", 
                         help= "enable debug info output")
     # set the scheduler method
-    parser.add_argument("-m", "--method", type= str, default="sch_random",
-                        help="declare the benchmark methods you use") 
     """
     currently only 1. sch_mpn 2. sch_mpn_empty 3. sch_random
                     4. sch_channel 5. sch_rrobin 6. sch_loss are supported.
     sch_mpn_empty means sch_mpn without training.
-    """               
+    """         
+    parser.add_argument("--method", type= str, default="sch_random",
+                        help="declare the benchmark methods you use") 
+    # set if full batch
+    parser.add_argument("-f", "--full_batch", action= "store_true", dest= "full_batch", 
+                        help="set if use full batch") 
 
     args = parser.parse_args()
     return args
-
 
 def load_data(args, dataset_name):
     """
@@ -108,7 +110,7 @@ def load_data(args, dataset_name):
     """
     # check if the full-batch training is enabled
     args_batch_size = args.batch_size
-    if args.batch_size <= 0:
+    if args.batch_size <= 0 or args.full_batch:
         full_batch = True
         args.batch_size = 128 # temporary batch size
     else:
@@ -171,6 +173,7 @@ def load_data(args, dataset_name):
                                 args.partition_alpha, client_num_in_total, args.batch_size)
 
     if full_batch:
+        logger.info("-------------batches combine------------")
         train_data_global = combine_batches(train_data_global)
         test_data_global = combine_batches(test_data_global)
         train_data_local_dict = {cid: combine_batches(train_data_local_dict[cid]) for cid in train_data_local_dict.keys()}
@@ -187,11 +190,12 @@ def combine_batches(batches):
     batches: list containing (batched_x, batched_y)
     return: combined batches or called full batch.
     """
-    full_x = torch.from_numpy(np.asarray([])).float()
-    full_y = torch.from_numpy(np.asarray([])).long()
-    for (batched_x, batched_y) in batches:
-        full_x = torch.cat((full_x, batched_x), 0)
-        full_y = torch.cat((full_y, batched_y), 0)
+    if isinstance(batches, list):
+        full_x = torch.cat([batch[0] for batch in batches], 0)
+        full_y = torch.cat([batch[1] for batch in batches], 0)
+    else:
+        batches = torch.utils.data.DataLoader(batches.dataset, batch_size = len(batches.dataset))
+        full_x, full_y = next(iter(batches))
     return [(full_x, full_y)]
 
 

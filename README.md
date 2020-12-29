@@ -28,28 +28,28 @@ sh begin.sh -[VERBOSE]
 Or, you can try other heterogeneous distribution (Non-IID) experiment:
 ``` 
 ## MNIST (non-i.i.d)
-sh ./src/run_fedavg_standalone_pytorch.sh 0 10 mnist /home/zzp1012/FedML/data/mnist lr hetero 50 20 0.03 sgd 0 sch_random -v
+sh ./src/run_fedavg_standalone_pytorch.sh 0 100 mnist [Your PATH to FedML]/data/MNIST lr hetero 10000 0.03 sgd sch_random -f -v
 
 ## shakespeare (non-i.i.d LEAF)
-sh ./src/run_fedavg_standalone_pytorch.sh 0 10 shakespeare /home/zzp1012/FedML/data/shakespeare rnn hetero 50 1 0.8 sgd 0 sch_random -v
+sh ./src/run_fedavg_standalone_pytorch.sh 0 100 shakespeare [Your PATH to FedML]/data/shakespeare rnn hetero 10000 0.03 sgd sch_random -f -v
 
 # fed_shakespeare (non-i.i.d Google)
-sh ./src/run_fedavg_standalone_pytorch.sh 0 10 fed_shakespeare /home/zzp1012/FedML/data/fed_shakespeare rnn hetero 50 1 0.8 sgd 0 sch_random -v
+sh ./src/run_fedavg_standalone_pytorch.sh 0 100 fed_shakespeare [Your PATH to FedML]/data/fed_shakespeare rnn hetero 10000 0.03 sgd sch_random -f -v
 
 ## Federated EMNIST (non-i.i.d)
-sh ./src/run_fedavg_standalone_pytorch.sh 0 10 femnist /home/zzp1012/FedML/data/FederatedEMNIST cnn hetero 50 1 0.03 sgd 0 sch_random -v
+sh ./src/run_fedavg_standalone_pytorch.sh 0 100 femnist [Your PATH to FedML]/data/FederatedEMNIST/datasets cnn hetero 10000 0.03 sgd sch_random -f -v
 
 ## Fed_CIFAR100 (non-i.i.d)
-sh ./src/run_fedavg_standalone_pytorch.sh 0 10 fed_cifar100 /home/zzp1012/FedML/data/fed_cifar100 resnet18_gn hetero 50 1 0.03 adam 0 sch_random -v
+sh ./src/run_fedavg_standalone_pytorch.sh 0 100 fed_cifar100 [Your PATH to FedML]/data/fed_cifar100 resnet18_gn hetero 10000 0.03 adam sch_random -f -v
 
 # Stackoverflow_LR (non-i.i.d)
-sh ./src/run_fedavg_standalone_pytorch.sh 0 10 stackoverflow_lr /home/zzp1012/FedML/data/stackoverflow lr hetero 50 1 0.03 sgd 0 sch_random -v
+sh ./src/run_fedavg_standalone_pytorch.sh 0 100 stackoverflow_lr [Your PATH to FedML]/data/stackoverflow lr hetero 10000 0.03 sgd sch_random -f -v
 
 # Stackoverflow_NWP (non-i.i.d)
-sh ./src/run_fedavg_standalone_pytorch.sh 0 10 stackoverflow_nwp /home/zzp1012/FedML/data/stackoverflow rnn hetero 50 1 0.03 sgd 0 sch_random -v
+sh ./src/run_fedavg_standalone_pytorch.sh 0 100 stackoverflow_nwp [Your PATH to FedML]/data/stackoverflow rnn hetero 10000 0.03 sgd sch_random -f -v
  
 # CIFAR10 (non-i.i.d) 
-sh ./src/run_fedavg_standalone_pytorch.sh 0 10 cifar10 /home/zzp1012/FedML/data/cifar10 resnet56 hetero 50 1 0.03 sgd 0 sch_random -v
+sh ./src/run_fedavg_standalone_pytorch.sh 0 100 cifar10 [Your PATH to FedML]/data/cifar10 resnet56 hetero 10000 0.03 sgd sch_random -f -v
 ```
 
 All above datasets are heterogeneous non-i.i.d distributed.

@@ -4,6 +4,7 @@ import wandb
 import time
 import math
 import csv
+from tqdm import tqdm
 
 import torch
 import numpy as np
@@ -299,7 +300,7 @@ class FedAvgTrainer(object):
 
         client = self.client_list[0]
 
-        for client_idx in range(min(int(client_num_in_total), self.client_num)):
+        for client_idx in tqdm(range(min(int(client_num_in_total), self.client_num))):
             """
             Note: for datasets like "fed_CIFAR100" and "fed_shakespheare",
             the training client number is larger than the testing client number

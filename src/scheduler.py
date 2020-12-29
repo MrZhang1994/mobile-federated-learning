@@ -31,8 +31,6 @@ scheduler_csv = config.scheduler_csv
 queue = []
 # used for sch_loss
 prev_cars = []
-loss_locals = []
-
 
 class Reward:
     def __init__(self):

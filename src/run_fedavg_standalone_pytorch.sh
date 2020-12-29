@@ -20,7 +20,9 @@ OPT=$9
 
 METHOD=$10
 
-VERBOSE=$11 #-v
+FULL_BATCH=$11 # -f
+
+VERBOSE=$12 #-v
 
 if [ $METHOD = "all" ]; then
     python3 ./main_fedavg.py \
@@ -34,7 +36,8 @@ if [ $METHOD = "all" ]; then
     --client_optimizer $OPT \
     --lr $LR \
     --method "sch_mpn" \
-    $VERBOSE
+    $VERBOSE \
+    $FULL_BATCH
 
     python3 ./main_fedavg.py \
     --gpu $GPU \
@@ -47,7 +50,9 @@ if [ $METHOD = "all" ]; then
     --client_optimizer $OPT \
     --lr $LR \
     --method "sch_random" \
-    $VERBOSE
+    $VERBOSE \
+    $FULL_BATCH
+
 
 
     python3 ./main_fedavg.py \
@@ -61,7 +66,8 @@ if [ $METHOD = "all" ]; then
     --client_optimizer $OPT \
     --lr $LR \
     --method "sch_channel" \
-    $VERBOSE
+    $VERBOSE \
+    $FULL_BATCH
 
     python3 ./main_fedavg.py \
     --gpu $GPU \
@@ -74,7 +80,8 @@ if [ $METHOD = "all" ]; then
     --client_optimizer $OPT \
     --lr $LR \
     --method "sch_rrobin" \
-    $VERBOSE
+    $VERBOSE \
+    $FULL_BATCH
 
 
     python3 ./main_fedavg.py \
@@ -88,7 +95,9 @@ if [ $METHOD = "all" ]; then
     --client_optimizer $OPT \
     --lr $LR \
     --method "sch_loss" \
-    $VERBOSE
+    $VERBOSE \
+    $FULL_BATCH
+
 else
     python3 ./main_fedavg.py \
     --gpu $GPU \
@@ -101,5 +110,6 @@ else
     --client_optimizer $OPT \
     --lr $LR \
     --method $METHOD \
-    $VERBOSE
+    $VERBOSE \
+    $FULL_BATCH
 fi
