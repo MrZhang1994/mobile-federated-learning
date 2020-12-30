@@ -70,12 +70,10 @@ class FedAvgTrainer(object):
 
     def train(self):
         """
-        Initialize values
+        Global initialized values
         """
-        local_itr_lst = np.zeros((1, self.args.comm_round)) # historical local iterations.
-        client_selec_lst = np.zeros((self.args.comm_round, int(client_num_in_total))) # historical client selections.
+        local_itr_lst = np.zeros((self.args.comm_round, int(client_num_in_total))) # historical local iterations.
         local_w_lst = [copy.deepcopy(self.model_global.cpu().state_dict())] * int(client_num_in_total) # maintain a lst for all clients to store local weights
-        loss_locals = [] # initial a lst to store loss values
         FPF2_idx_lst = np.zeros((1, int(client_num_in_total))) # maintain a lst for FPF2 indexes
         local_loss_lst = np.zeros((1, client_num_in_total)) # maintain a lst for local losses
         
@@ -97,6 +95,9 @@ class FedAvgTrainer(object):
    
             self.model_global.train()
             
+            # get client_indexes from scheduler
+            if round_idx == 0:
+                loss_locals = [] # have no losses at the first round.
             if self.args.method == "sch_mpn" or self.args.method == "sch_mpn_empty":
                 if self.args.method == "sch_mpn_empty":
                     client_indexes, local_itr = self.scheduler.sch_mpn_empty(round_idx, self.time_counter)
@@ -104,30 +105,30 @@ class FedAvgTrainer(object):
                     client_indexes, local_itr = self.scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst[0], local_loss_lst)
             else:
                 client_indexes, local_itr = self.scheduler(round_idx, self.time_counter)
+                # write to the scheduler csv
                 with open(scheduler_csv, mode = "a+", encoding='utf-8', newline='') as file:
                     csv_writer = csv.writer(file)
                     if round_idx == 0:
                         csv_writer.writerow(['time counter', 'client index', 'iteration'])
                     csv_writer.writerow([self.time_counter, str(client_indexes), local_itr])
                     file.flush()
+            logger.info("client_indexes = " + str(client_indexes))
             
             # write one line to trainer_csv
             trainer_csv_line = [round_idx, self.time_counter, str(client_indexes)]
 
             # contribute to time counter
             self.tx_time(client_indexes) # transmit time
-            logger.info("client_indexes = " + str(client_indexes))
             
             # store the last model's training parameters.
             last_w = self.model_global.cpu().state_dict() 
             
-             # Initialization
+             # local Initialization
             w_locals, loss_locals, time_interval_lst = [], [], []
             
-            # Update local_itr_lst & client_selec_lst
+            # Update local_itr_lst
             if client_indexes and local_itr > 0: # only if client_idx is not empty and local_iter > 0, then I will update following values
-                local_itr_lst[0, round_idx] = local_itr
-                client_selec_lst[round_idx, client_indexes] = 1
+                local_itr_lst[round_idx, client_indexes] = local_itr
 
             """
             for scalability: following the original FedAvg algorithm, we uniformly sample a fraction of clients in each round.
@@ -197,7 +198,7 @@ class FedAvgTrainer(object):
             for para in w_glob.keys():
                 A_mat[para] = A_mat[para] * (1 - 1/G2) + (w_glob[para].numpy().ravel() - last_w[para].numpy().ravel()) / G2
             # update G_mat
-            G_mat = G_mat * (1 - 1 / G1) + np.dot(local_itr_lst, client_selec_lst) / G1
+            G_mat = G_mat * (1 - 1 / G1) + np.sum(local_itr_lst, 0).reshape(1, -1) / G1
 
             # update the time counter
             if time_interval_lst:

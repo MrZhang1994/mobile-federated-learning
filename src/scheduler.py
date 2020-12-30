@@ -112,6 +112,7 @@ class Scheduler_MPN:
                 client_indexes.append(int(self.available_car[0, pointer[i]]))
         local_itr = itr_num
 
+        # write to the scheduler csv
         with open(scheduler_csv, mode = "w+", encoding='utf-8', newline='') as file:
             csv_writer = csv.writer(file)
             if round_idx == 0:
@@ -197,6 +198,7 @@ class Scheduler_MPN:
         self.state_last = state
         self.time_counter_last = time_counter
 
+        # write to the scheduler csv
         with open(scheduler_csv, mode = "w+", encoding='utf-8', newline='') as file:
             csv_writer = csv.writer(file)
             if round_idx == 0:
