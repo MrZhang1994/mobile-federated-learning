@@ -8,8 +8,7 @@ from tqdm import tqdm
 
 import torch
 import numpy as np
-import numexpr as ne
-import torch.multiprocessing as mp
+import multiprocessing as mp
 
 from client import Client
 from config import *
@@ -72,20 +71,18 @@ class FedAvgTrainer(object):
         """
         Global initialized values
         """
-        local_itr_lst = np.zeros((self.args.comm_round, int(client_num_in_total))) # historical local iterations.
-        local_w_lst = [copy.deepcopy(self.model_global.cpu().state_dict())] * int(client_num_in_total) # maintain a lst for all clients to store local weights
-        FPF2_idx_lst = np.zeros((1, int(client_num_in_total))) # maintain a lst for FPF2 indexes
-        local_loss_lst = np.zeros((1, client_num_in_total)) # maintain a lst for local losses
-        
+        # maintain a lst for local losses
+        local_loss_lst = np.zeros((1, client_num_in_total)) 
         # counting days
         counting_days = 0
-        
         # Initialize A for calculating FPF2 index
-        A_mat = dict()
+        w_diff_mat = torch.zeros((len(self.model_global.state_dict().keys()), int(client_num_in_total))).to(self.device)
+        local_itr_lst = torch.zeros(self.args.comm_round, int(client_num_in_total)).to(self.device)  # historical local iterations.
+        A_mat = dict() 
         for para in self.model_global.state_dict().keys():
             weight_shape = self.model_global.state_dict()[para].numpy().ravel().shape[0]
-            A_mat[para] = np.ones(weight_shape) # initial the value of A with zero.
-        G_mat = np.zeros((1, int(client_num_in_total))) # initial the value of G with zero
+            A_mat[para] = torch.ones(weight_shape).to(self.device) # initial the value of A with zero.
+        G_mat = torch.zeros((1, int(client_num_in_total))).to(self.device) # initial the value of G with zero
         """
         starts training, entering the loop of command round.
         """
@@ -96,10 +93,8 @@ class FedAvgTrainer(object):
             self.model_global.train()
             
             # get client_indexes from scheduler
-            if round_idx == 0:
-                loss_locals = [] # have no losses at the first round.
             if self.args.method == "sch_mpn" or self.args.method == "sch_mpn_empty":
-                if self.args.method == "sch_mpn_empty":
+                if self.args.method == "sch_mpn_empty" or round_idx == 0:
                     client_indexes, local_itr = self.scheduler.sch_mpn_empty(round_idx, self.time_counter)
                 else:
                     client_indexes, local_itr = self.scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst[0], local_loss_lst)
@@ -116,25 +111,22 @@ class FedAvgTrainer(object):
             
             # write one line to trainer_csv
             trainer_csv_line = [round_idx, self.time_counter, str(client_indexes)]
+            
+            # Update local_itr_lst
+            if client_indexes and local_itr > 0: # only if client_idx is not empty and local_iter > 0, then I will update following values
+                local_itr_lst[round_idx, list(client_indexes)] = float(local_itr)
 
             # contribute to time counter
             self.tx_time(client_indexes) # transmit time
             
             # store the last model's training parameters.
             last_w = self.model_global.cpu().state_dict() 
-            
-             # local Initialization
-            w_locals, loss_locals, time_interval_lst = [], [], []
-            
-            # Update local_itr_lst
-            if client_indexes and local_itr > 0: # only if client_idx is not empty and local_iter > 0, then I will update following values
-                local_itr_lst[round_idx, client_indexes] = local_itr
-
+            # local Initialization
+            w_locals, loss_locals, time_interval_lst, loss_list = [], [], [], []
             """
             for scalability: following the original FedAvg algorithm, we uniformly sample a fraction of clients in each round.
             Instead of changing the 'Client' instances, our implementation keeps the 'Client' instances and then updates their local dataset 
             """
-            loss_list = []
             for idx in range(len(client_indexes)):
                 # update dataset
                 client = self.client_list[idx]
@@ -154,32 +146,20 @@ class FedAvgTrainer(object):
                 # record current w into w_locals
                 w_locals.append((client.get_sample_number(), copy.deepcopy(w)))
                 # record current loss into loss_locals
-                loss_locals.append(copy.deepcopy(loss))
-                
-                # update the local weights
-                local_w_lst[client_idx] = copy.deepcopy(w)
+                loss_locals.append(loss)
                 # update the local_loss_lst
                 local_loss_lst[0, client_idx] = loss
+                # update w_diff_mat
+                for i, para in enumerate(self.model_global.state_dict().keys()):
+                    w_diff_mat[i, idx] = torch.norm((w[para].to(self.device).reshape((-1, )) - last_w[para].to(self.device).reshape((-1, )))  * A_mat[para])
 
                 # loss 
                 logger.info('Client {:3d}, loss {:.3f}'.format(client_idx, loss))
                 loss_list.append(loss)
 
-            # calculate FPF2 index.
-            def FPF2_cal(local_w_lst):
-                def FPF2_numerator(w):
-                    res = 0
-                    for para in w.keys():
-                        res += np.linalg.norm(w[para].numpy().ravel() * A_mat[para])
-                    return res
-                
-                numerators = np.reshape(np.array(list(map(FPF2_numerator, local_w_lst))), (1, -1))
-                res = numerators / G_mat
-                res[np.bitwise_or(np.isnan(res), np.isinf(res))] = 0
-                return res
-
             # update FPF index list
-            FPF2_idx_lst = FPF2_cal(local_w_lst)
+            FPF2_idx_lst = (w_diff_mat.sum(dim = 0) / G_mat).cpu().numpy()
+            FPF2_idx_lst[np.bitwise_or(np.isnan(FPF2_idx_lst), np.isinf(FPF2_idx_lst))] = 0
             
             # write FPF index list to csv
             with open(FPF_csv, mode = "a+", encoding='utf-8', newline='') as file:
@@ -196,9 +176,9 @@ class FedAvgTrainer(object):
             
            # update A_mat
             for para in w_glob.keys():
-                A_mat[para] = A_mat[para] * (1 - 1/G2) + (w_glob[para].numpy().ravel() - last_w[para].numpy().ravel()) / G2
+                A_mat[para] = A_mat[para] * (1 - 1/G2) + (w_glob[para].to(self.device).reshape((-1, )) - last_w[para].to(self.device).reshape((-1, ))) / G2
             # update G_mat
-            G_mat = G_mat * (1 - 1 / G1) + np.sum(local_itr_lst, 0).reshape(1, -1) / G1
+            G_mat = G_mat * (1 - 1 / G1) + local_itr_lst.sum(dim=0).reshape((1, -1)) / G1
 
             # update the time counter
             if time_interval_lst:
