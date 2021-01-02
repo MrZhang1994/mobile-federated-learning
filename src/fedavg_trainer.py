@@ -36,6 +36,7 @@ class FedAvgTrainer(object):
         self.time_counter = channel_data['Time'][0]
         self.cum_time = self.time_counter
 
+        self.model_init = copy.deepcopy(model)
         self.model_global = model
         self.model_global.train()
 
@@ -195,6 +196,7 @@ class FedAvgTrainer(object):
                     for key in w_glob.keys():
                         w_glob[key] = torch.rand(w_glob[key].size())
                     counting_days = 0
+                    self.model_global = copy.deepcopy(self.model_init)
                 else:
                     counting_days += 1                
                 self.time_counter = 0
