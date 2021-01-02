@@ -8,7 +8,6 @@ from tqdm import tqdm
 
 import torch
 import numpy as np
-import multiprocessing as mp
 
 from client import Client
 from config import *
@@ -161,8 +160,7 @@ class FedAvgTrainer(object):
 
             # update FPF index list
             FPF2_idx_lst = (w_diff_mat.sum(dim = 0) / G_mat).cpu().numpy()
-            FPF2_idx_lst[np.bitwise_or(np.isnan(FPF2_idx_lst), np.isinf(FPF2_idx_lst))] = 0
-            
+            FPF2_idx_lst[np.bitwise_or(np.isnan(FPF2_idx_lst), np.isinf(FPF2_idx_lst))] = 0  
             # write FPF index list to csv
             with open(FPF_csv, mode = "a+", encoding='utf-8', newline='') as file:
                 csv_writer = csv.writer(file)
@@ -198,7 +196,6 @@ class FedAvgTrainer(object):
                         w_glob[key] = torch.rand(w_glob[key].size())
                     counting_days = 0
                 else:
-                    
                     counting_days += 1                
                 self.time_counter = 0
             # set the time_counter 
@@ -256,7 +253,6 @@ class FedAvgTrainer(object):
 
         logger.debug("time_counter after tx_time: {}".format(self.time_counter))
 
-
     def aggregate(self, w_locals):
         if not w_locals:
             return self.model_global.cpu().state_dict()
@@ -301,7 +297,7 @@ class FedAvgTrainer(object):
             """
             if self.test_data_local_dict[client_idx] is None:
                 continue
-            client.update_local_dataset(0, self.train_data_local_dict[client_idx],
+            client.update_local_dataset(client_idx, self.train_data_local_dict[client_idx],
                                         self.test_data_local_dict[client_idx],
                                         self.train_data_local_num_dict[client_idx])
             # train data
