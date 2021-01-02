@@ -141,6 +141,8 @@ class PG(object):
         return itr_num, pointer, hidden_states
 
     def learn(self):
+        if config.DONT_TRAIN:
+            return 0, 0
         self.learn_time += 1
         loss_a = []
         for bt in self.memory:

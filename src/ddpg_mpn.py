@@ -308,6 +308,8 @@ class DDPG(object):
         
         return itr_num, pointer, hidden_states
     def learn(self):
+        if config.DONT_TRAIN:
+            return 0, 0
         self.learn_time += 1
 
         for target_param, param in zip(self.Critic_target.parameters(), self.Critic_eval.parameters()):

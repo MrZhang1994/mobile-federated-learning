@@ -90,6 +90,7 @@ TAU = 0.01          # soft replacement
 use_gpu = False      # use GPU or not
 AMEND_RATE = 1
 NAIVE_PG = False
+DONT_TRAIN = False
 
 # ==========================
 # Parameters for multi-layer PointerNetwork

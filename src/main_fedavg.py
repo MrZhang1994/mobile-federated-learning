@@ -74,7 +74,7 @@ def add_args():
     parser.add_argument('--comm_round', type=int, default=1000,
                         help='how many round of communications we shoud use')
 
-    parser.add_argument('--frequency_of_the_test', type=int, default=50,
+    parser.add_argument('--frequency_of_the_test', type=int, default=25,
                         help='the frequency of the algorithms')
 
     parser.add_argument('--gpu', type=int, default=0,
@@ -239,6 +239,14 @@ def create_model(args, model_name, output_dim):
 def main():
     # get all the program arguments.
     args = add_args()
+    global_hyp = {}
+    import config
+    for k, v in config.__dict__.items():
+        if type(v) in [int, float, str, bool] and not k.startswith('_'):
+            global_hyp.update({k: v})
+    for k, v in args.__dict__.items():
+        if type(v) in [int, float, str, bool] and not k.startswith('_'):
+            global_hyp.update({k: v})
 
     # Set the random seed. The np.random seed determines the dataset partition.
     # The torch_manual_seed determines the initial weight.
@@ -301,7 +309,7 @@ def main():
     wandb.init(
         project="fedavg",
         name="FedAVG-" + str(args.method)[4:] + "-r" + str(args.comm_round) + "-lr" + str(args.lr),
-        config=args
+        config=global_hyp
     )
 
     logger.debug("------------finish setting-------------")

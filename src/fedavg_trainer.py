@@ -35,6 +35,7 @@ class FedAvgTrainer(object):
         self.setup_clients(train_data_local_num_dict, train_data_local_dict, test_data_local_dict)
         # time counter starts from the first line
         self.time_counter = channel_data['Time'][0]
+        self.cum_time = self.time_counter
 
         self.model_global = model
         self.model_global.train()
@@ -184,6 +185,7 @@ class FedAvgTrainer(object):
             # update the time counter
             if time_interval_lst:
                 self.time_counter += math.ceil(TIME_COMPRESSION_RATIO*(sum(time_interval_lst) / len(time_interval_lst)))
+                self.cum_time += math.ceil(TIME_COMPRESSION_RATIO*(sum(time_interval_lst) / len(time_interval_lst)))
             logger.debug("time_counter after training: {}".format(self.time_counter))
             
             trainer_csv_line += [self.time_counter-trainer_csv_line[1], np.var(local_loss_lst), str(loss_list)]
@@ -229,7 +231,7 @@ class FedAvgTrainer(object):
             wandb.log({
                 "reward": reward,
                 "round": round_idx,
-                "time_counter": self.time_counter,
+                "cum_time": self.cum_time,
                 "local_itr": local_itr,
                 "client_num": len(client_indexes)
             })
@@ -237,6 +239,7 @@ class FedAvgTrainer(object):
     def tx_time(self, client_indexes):
         if not client_indexes:
             self.time_counter += 1
+            self.cum_time += 1
             return 
         # read the channel condition for corresponding cars.
         channel_res = np.reshape(np.array(channel_data[channel_data['Time'] == self.time_counter * channel_data['Car'].isin(client_indexes)]["Distance to BS(4982,905)"]), (1, -1))
@@ -249,6 +252,7 @@ class FedAvgTrainer(object):
 
         # self.time_counter += tmp_t
         self.time_counter += math.ceil(TIME_COMPRESSION_RATIO*tmp_t)
+        self.cum_time += math.ceil(TIME_COMPRESSION_RATIO*tmp_t)
 
         logger.debug("time_counter after tx_time: {}".format(self.time_counter))
 
@@ -336,7 +340,7 @@ class FedAvgTrainer(object):
             "Test/AccVar": test_acc_var,
             "Test/LossVar": test_loss_var,
             "round": round_idx,
-            "time_counter": self.time_counter,
+            "cum_time": self.cum_time,
         }
         logger.info(stats)
         wandb.log(stats)
