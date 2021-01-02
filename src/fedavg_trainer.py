@@ -327,7 +327,16 @@ class FedAvgTrainer(object):
         test_acc = sum(test_metrics['num_correct']) / sum(test_metrics['num_samples'])
         test_loss = sum(test_metrics['losses']) / sum(test_metrics['num_samples'])
 
-        stats = {'test_acc': test_acc, 'test_loss': test_loss}
-        wandb.log({"Test/Acc": test_acc, "round": round_idx})
-        wandb.log({"Test/Loss": test_loss, "round": round_idx})
+        test_loss_var = np.var(test_metrics['losses'])
+        test_acc_var = np.var(np.array(test_metrics['num_correct']) / np.array(test_metrics['num_samples']))
+
+        stats = {
+            "Test/Acc": test_acc,
+            "Test/Loss": test_loss,
+            "Test/AccVar": test_acc_var,
+            "Test/LossVar": test_loss_var,
+            "round": round_idx,
+            "time_counter": self.time_counter,
+        }
         logger.info(stats)
+        wandb.log(stats)
