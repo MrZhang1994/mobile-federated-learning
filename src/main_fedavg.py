@@ -2,11 +2,10 @@
 # system python package load.
 import argparse
 import logging
-import os, shutil
+import os
 import sys
 import time
-from datetime import datetime
-import csv
+import random
 
 # Maching learning tool chain.
 import numpy as np
@@ -15,11 +14,9 @@ import wandb
 
 from fedavg_trainer import FedAvgTrainer
 from config import *
-import scheduler
 
-# ************************************************************************************************************ #
-sys.path.insert(0, os.path.abspath("../FedML")) # add the root dir of FedML
-# ************************************************************************************************************ #
+# add the root dir of FedML
+sys.path.insert(0, os.path.abspath("../FedML")) 
 
 from fedml_api.data_preprocessing.cifar10.data_loader import load_partition_data_cifar10
 from fedml_api.data_preprocessing.cifar100.data_loader import load_partition_data_cifar100
@@ -74,10 +71,7 @@ def add_args():
 
     parser.add_argument('--wd', help='weight decay parameter;', type=float, default=0.001)
 
-    parser.add_argument('--epochs', type=int, default=5, metavar='EP',
-                        help='how many epochs will be trained locally')
-
-    parser.add_argument('--comm_round', type=int, default=10,
+    parser.add_argument('--comm_round', type=int, default=1000,
                         help='how many round of communications we shoud use')
 
     parser.add_argument('--frequency_of_the_test', type=int, default=50,
@@ -88,19 +82,24 @@ def add_args():
 
     parser.add_argument('--seed', type=int, default=0,
                         help='the random seed')
-
-    parser.add_argument('--ci', type=int, default=0,
-                        help='CI')
+                        
     # set if using debug mod
     parser.add_argument("-v", "--verbose", action= "store_true", dest= "verbose", 
                         help= "enable debug info output")
     # set the scheduler method
-    parser.add_argument("-m", "--method", type= str, default="sch_random",
-                        help="declare the benchmark methods you use")
+    """
+    currently only 1. sch_mpn 2. sch_mpn_empty 3. sch_random
+                    4. sch_channel 5. sch_rrobin 6. sch_loss are supported.
+    sch_mpn_empty means sch_mpn without training.
+    """         
+    parser.add_argument("--method", type= str, default="sch_random",
+                        help="declare the benchmark methods you use") 
+    # set if full batch
+    parser.add_argument("-f", "--full_batch", action= "store_true", dest= "full_batch", 
+                        help="set if use full batch") 
 
     args = parser.parse_args()
     return args
-
 
 def load_data(args, dataset_name):
     """
@@ -111,7 +110,7 @@ def load_data(args, dataset_name):
     """
     # check if the full-batch training is enabled
     args_batch_size = args.batch_size
-    if args.batch_size <= 0:
+    if args.batch_size <= 0 or args.full_batch:
         full_batch = True
         args.batch_size = 128 # temporary batch size
     else:
@@ -174,6 +173,7 @@ def load_data(args, dataset_name):
                                 args.partition_alpha, client_num_in_total, args.batch_size)
 
     if full_batch:
+        logger.info("-------------batches combine------------")
         train_data_global = combine_batches(train_data_global)
         test_data_global = combine_batches(test_data_global)
         train_data_local_dict = {cid: combine_batches(train_data_local_dict[cid]) for cid in train_data_local_dict.keys()}
@@ -190,11 +190,12 @@ def combine_batches(batches):
     batches: list containing (batched_x, batched_y)
     return: combined batches or called full batch.
     """
-    full_x = torch.from_numpy(np.asarray([])).float()
-    full_y = torch.from_numpy(np.asarray([])).long()
-    for (batched_x, batched_y) in batches:
-        full_x = torch.cat((full_x, batched_x), 0)
-        full_y = torch.cat((full_y, batched_y), 0)
+    if isinstance(batches, list):
+        full_x = torch.cat([batch[0] for batch in batches], 0)
+        full_y = torch.cat([batch[1] for batch in batches], 0)
+    else:
+        batches = torch.utils.data.DataLoader(batches.dataset, batch_size = len(batches.dataset))
+        full_x, full_y = next(iter(batches))
     return [(full_x, full_y)]
 
 
@@ -244,39 +245,16 @@ def main():
     # We fix these two, so that we can reproduce the result.
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
+    random.seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
 
     # set if use logging debug version.
     logger.setLevel(logging.DEBUG)
+    logger_sch.setLevel(logging.DEBUG)
     if not args.verbose:
         logger.setLevel(logging.INFO)
+        logger_sch.setLevel(logging.INFO)
     logger.debug("--------DEBUG enviroment start---------")
-
-    dt=datetime.now()
-    DAY =  str(dt.month).zfill(2)+str(dt.day).zfill(2)
-    Time = str(dt.month).zfill(2)+str(dt.day).zfill(2)+'_'+str(dt.hour).zfill(2)+str(dt.minute).zfill(2)
-    del dt
-    path = 'result/'+DAY
-    if os.path.exists(path) == False:
-        os.makedirs(path)
-    path = path+'/'+str(args.method)[4:]+'_'+Time
-    if os.path.exists(path) == False:
-        os.makedirs(path);
-
-    # initialize some csv_writers
-    para_record1 = open(path+'/trainer_'+str(args.method)[4:]+'_'+DAY+'_'+Time+'.csv', 'w', encoding='utf-8', newline='')
-    csv_writer1 = csv.writer(para_record1)
-    csv_writer1.writerow(['round index', 'time counter', 'client index', 'train time', 'fairness', 'local loss', 'global loss', 'test accuracy'])
-    
-    para_record2 = open(path+'/scheduler_'+str(args.method)[4:]+'_'+DAY+'_'+Time+'.csv', 'w', encoding='utf-8', newline='')
-    csv_writer2 = csv.writer(para_record2)
-    
-    para_record3 = open(path+'/FPF_'+str(args.method)[4:]+'_'+DAY+'_'+Time+'.csv', 'w', encoding='utf-8', newline='')
-    csv_writer3 = csv.writer(para_record3)
-    
-    list_a = ['time counter']
-    for i in range(client_num_in_total):
-        list_a.append("car_"+str(i))
-    csv_writer3.writerow(list_a)
     
     # show the upate information
     logger.debug("-------global parameters setting-------")
@@ -285,6 +263,7 @@ def main():
     logger.debug("G1: {}".format(G1))
     logger.debug("G2: {}".format(G2))
     logger.debug("RESTART_DAYS: {}".format(RESTART_DAYS))
+    logger.debug("DATE_LENGTH {}".format(DATE_LENGTH))
     logger.debug("TIME_COMPRESSION_RATIO: {}".format(TIME_COMPRESSION_RATIO))
 
     logger.debug("------ordinary parameter setting-------")
@@ -292,12 +271,19 @@ def main():
 
     # show other information
     logger.debug("-----------Other information-----------")
-    logger.debug("channel_data_dir {}".format(channel_data_dir))
+    logger.debug("CHANNEL_DATA_DIR {}".format(CHANNEL_DATA_DIR))
     logger.debug("client_num_in_total: {}".format(client_num_in_total))
     logger.debug("client_num_in_total: {}".format(client_num_per_round))
 
     logger.debug("---------cuda device setting-----------")
-    device = torch.device("cuda:" + str(args.gpu) if torch.cuda.is_available() else "cpu")
+    if torch.cuda.is_available():
+        if args.gpu >= torch.cuda.device_count():
+            logger.error("CUDA error, invalid device ordinal")
+            exit(1)
+    else:
+        logger.error("Plz choose other machine with GPU to run the program")
+        exit(1)
+    device = torch.device("cuda:" + str(args.gpu))
     logger.debug(device)
 
     # load data
@@ -314,14 +300,14 @@ def main():
     # initialize the wandb.
     wandb.init(
         project="fedavg",
-        name="FedAVG-" + str(args.method)[4:] + "-r" + str(args.comm_round) + "-e" + str(args.epochs) + "-lr" + str(args.lr),
+        name="FedAVG-" + str(args.method)[4:] + "-r" + str(args.comm_round) + "-lr" + str(args.lr),
         config=args
     )
 
     logger.debug("------------finish setting-------------")
 
     trainer = FedAvgTrainer(dataset, model, device, args)
-    trainer.train(csv_writer1, csv_writer2, csv_writer3)
+    trainer.train()
 
 if __name__ == "__main__":
     main()

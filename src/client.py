@@ -53,7 +53,7 @@ class Client:
         time_start = float(time.time()) 
         # initial epoch loss
         epoch_loss = []
-        for epoch in range(self.args.epochs * local_iteration): # epochs = epochs * local_itr
+        for epoch in range(local_iteration): # epochs = epochs * local_itr
             batch_loss = []
             for batch_idx, (x, labels) in enumerate(self.local_training_data):
                 x, labels = x.to(self.device), labels.to(self.device)
@@ -80,8 +80,6 @@ class Client:
         metrics = { 
             'test_correct': 0, 
             'test_loss' : 0, 
-            'test_precision': 0,
-            'test_recall': 0,
             'test_total' : 0
         }
         if b_use_test_dataset:
@@ -95,18 +93,9 @@ class Client:
                 target = target.to(self.device)
                 pred = model_global(x)
                 loss = self.criterion(pred, target)
-
-                if self.args.dataset == "stackoverflow_lr":
-                    predicted = (pred > .5).int()
-                    correct = predicted.eq(target).sum(axis = -1).eq(target.size(1)).sum()
-                    true_positive = ((target * predicted) > .1).int().sum(axis = -1)
-                    precision = true_positive / (predicted.sum(axis = -1) + 1e-13)
-                    recall = true_positive / (target.sum(axis = -1)  + 1e-13)
-                    metrics['test_precision'] += precision.sum().item()
-                    metrics['test_recall'] += recall.sum().item()
-                else:
-                    _, predicted = torch.max(pred, -1)
-                    correct = predicted.eq(target).sum()
+        
+                _, predicted = torch.max(pred, -1)
+                correct = predicted.eq(target).sum()
 
                 metrics['test_correct'] += correct.item()
                 metrics['test_loss'] += loss.item() * target.size(0)

@@ -331,9 +331,6 @@ class DDPG(object):
         # print('use_gpu = '+str(use_gpu))
         # if use_gpu:
         #     bt = bt.cuda()
-        
-
-
 
         if use_gpu:
             bs = bs.to(device) 

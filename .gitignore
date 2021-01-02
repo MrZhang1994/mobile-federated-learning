@@ -7,3 +7,5 @@ src/wandb
 .vscode/
 FedML
 *.out
+# ignore results
+outs/

@@ -14,17 +14,15 @@ DISTRIBUTION=$6
 
 ROUND=$7
 
-EPOCH=$8
+LR=$8
 
-LR=$9
+OPT=$9
 
-OPT=$10
+METHOD=$10
 
-CI=$11
+FULL_BATCH=$11 # -f
 
-METHOD=$12
-
-VERBOSE=$13 #-v
+VERBOSE=$12 #-v
 
 if [ $METHOD = "all" ]; then
     python3 ./main_fedavg.py \
@@ -34,13 +32,12 @@ if [ $METHOD = "all" ]; then
     --model $MODEL \
     --partition_method $DISTRIBUTION  \
     --comm_round $ROUND \
-    --epochs $EPOCH \
     --batch_size $BATCH_SIZE \
     --client_optimizer $OPT \
     --lr $LR \
-    --ci $CI \
     --method "sch_mpn" \
-    $VERBOSE
+    $VERBOSE \
+    $FULL_BATCH
 
     python3 ./main_fedavg.py \
     --gpu $GPU \
@@ -49,13 +46,13 @@ if [ $METHOD = "all" ]; then
     --model $MODEL \
     --partition_method $DISTRIBUTION  \
     --comm_round $ROUND \
-    --epochs $EPOCH \
     --batch_size $BATCH_SIZE \
     --client_optimizer $OPT \
     --lr $LR \
-    --ci $CI \
     --method "sch_random" \
-    $VERBOSE
+    $VERBOSE \
+    $FULL_BATCH
+
 
 
     python3 ./main_fedavg.py \
@@ -65,13 +62,12 @@ if [ $METHOD = "all" ]; then
     --model $MODEL \
     --partition_method $DISTRIBUTION  \
     --comm_round $ROUND \
-    --epochs $EPOCH \
     --batch_size $BATCH_SIZE \
     --client_optimizer $OPT \
     --lr $LR \
-    --ci $CI \
     --method "sch_channel" \
-    $VERBOSE
+    $VERBOSE \
+    $FULL_BATCH
 
     python3 ./main_fedavg.py \
     --gpu $GPU \
@@ -80,13 +76,12 @@ if [ $METHOD = "all" ]; then
     --model $MODEL \
     --partition_method $DISTRIBUTION  \
     --comm_round $ROUND \
-    --epochs $EPOCH \
     --batch_size $BATCH_SIZE \
     --client_optimizer $OPT \
     --lr $LR \
-    --ci $CI \
     --method "sch_rrobin" \
-    $VERBOSE
+    $VERBOSE \
+    $FULL_BATCH
 
 
     python3 ./main_fedavg.py \
@@ -96,13 +91,13 @@ if [ $METHOD = "all" ]; then
     --model $MODEL \
     --partition_method $DISTRIBUTION  \
     --comm_round $ROUND \
-    --epochs $EPOCH \
     --batch_size $BATCH_SIZE \
     --client_optimizer $OPT \
     --lr $LR \
-    --ci $CI \
     --method "sch_loss" \
-    $VERBOSE
+    $VERBOSE \
+    $FULL_BATCH
+
 else
     python3 ./main_fedavg.py \
     --gpu $GPU \
@@ -111,11 +106,10 @@ else
     --model $MODEL \
     --partition_method $DISTRIBUTION  \
     --comm_round $ROUND \
-    --epochs $EPOCH \
     --batch_size $BATCH_SIZE \
     --client_optimizer $OPT \
     --lr $LR \
-    --ci $CI \
     --method $METHOD \
-    $VERBOSE
+    $VERBOSE \
+    $FULL_BATCH
 fi

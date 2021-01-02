@@ -1,30 +1,69 @@
-import logging
-import pandas as pd
 import os
+import logging
+from datetime import datetime
+import pandas as pd
 from tensorboardX import SummaryWriter
 
+# ===============================
+# process the channel data
+# ===============================
 # set the data dir
-channel_data_dir = "../data"
-date_length = 10
+CHANNEL_DATA_DIR = "../data"
+DATE_LENGTH = 10
 # read channel data at once.
-channel_data = pd.concat([pd.read_csv(channel_data_dir+'/'+str(csv_name)+'.csv'
-                     # error_bad_lines=False
-                     ) for csv_name in range(1001, 1001+date_length)], ignore_index = True)
+channel_data = pd.concat([pd.read_csv(CHANNEL_DATA_DIR+'/'+str(csv_name)+'.csv'
+                         # error_bad_lines=False
+                         ) for csv_name in range(1001, 1001+DATE_LENGTH)], ignore_index = True)
 # restrict the number of client_num_in_total to maxmium car ID + 1
 client_num_in_total = channel_data['Car'].max() + 1
 client_num_per_round = 100 # number of local clients
 
+# ===============================
+# setup the tensorboardX
+# ===============================
+boardX = SummaryWriter(comment="fedavg")
+
+# ===============================
+# set up threads for numpy
+# ===============================
+os.environ['NUMEXPR_MAX_THREADS'] = str(os.cpu_count())
+os.environ['NUMEXPR_NUM_THREADS'] = str(round(os.cpu_count() / 2))
+
+# ===============================
+# store results for training process
+# ===============================
+# setup directories for store paritial results
+DAY =  str(datetime.now().month).zfill(2)+str(datetime.now().day).zfill(2)
+MOMENT = str(datetime.now().hour).zfill(2)+str(datetime.now().minute).zfill(2)
+RESULT_PATH = os.path.join("result", DAY, MOMENT)
+if os.path.exists(RESULT_PATH) == False:
+    os.makedirs(RESULT_PATH)
+
+# initialize some csv_writers name
+trainer_csv = os.path.join(RESULT_PATH, "-".join(["trainer", DAY, MOMENT]) + '.csv') # file name
+scheduler_csv = os.path.join(RESULT_PATH, "-".join(["scheduler", DAY, MOMENT]) + '.csv')# file name
+FPF_csv = os.path.join(RESULT_PATH, "-".join(["FPF", DAY, MOMENT]) + '.csv') # file name
+
+# ===============================
 # set the logger
+# ===============================
 logging.basicConfig(
-                    # filename = "logfile",
-                    # filemode = "w+",
+                    filename = os.path.join(RESULT_PATH, "-".join(["logfile", DAY, MOMENT]) + ".txt"),
+                    filemode = "w+",
                     format='%(name)s %(levelname)s %(message)s',
                     datefmt = "%H:%M:%S",
                     level=logging.DEBUG)
+# define a Handler which writes DEBUG messages or higher to the sys.stderr
+console = logging.StreamHandler()
+console.setLevel(logging.DEBUG)
+# set a format which is simpler for console use
+formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
+# tell the handler to use this format
+console.setFormatter(formatter)
+# add the handler to the root logger
+logging.getLogger().addHandler(console)
 logger = logging.getLogger("training")
-
-# setup the tensorboardX
-boardX = SummaryWriter(comment="-fedavg")
+logger_sch = logging.getLogger('schedule')
 
 # ===============================
 # set hyperparameters for Trainer
@@ -43,7 +82,7 @@ TIME_COMPRESSION_RATIO = 0.1
 # ==========================
 # Parameters for ddpg
 # ==========================
-MEMORY_CAPACITY = 10 # size of experience pool
+MEMORY_CAPACITY = 4 # size of experience pool
 LR_A = 0.01         # learning rate for actor
 LR_C = 0.001        # learning rate for critic
 GAMMA = 0.9         # reward discount
