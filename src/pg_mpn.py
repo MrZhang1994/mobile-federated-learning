@@ -10,7 +10,7 @@ import copy
 import PointerNet
 import config
 
-from ddpg_mpn import ANet
+from ddpg_mpn import ANet, Amender
 
 # Parameters for ddpg
 MEMORY_CAPACITY = config.MEMORY_CAPACITY    # size of experience pool
@@ -103,9 +103,9 @@ class PG(object):
         self.memory = []
 
     def choose_action_withAmender(self, state):
-        return self.choose_action(state)
+        return self.choose_action(state, True)
 
-    def choose_action(self, state):
+    def choose_action(self, state, amender=False):
         state = state.astype(np.float32)
         ss = torch.FloatTensor(state)
         num_clients = state.shape[1]
@@ -136,7 +136,8 @@ class PG(object):
             pointer = pointer[0: count]
         # ================================================================================================
         # # Amender
-        # itr_num, pointer = Amender(itr_num, pointer, state)
+        if amender:
+            itr_num, pointer = Amender(itr_num, pointer, state)
         # ================================================================================================      
         return itr_num, pointer, hidden_states
 
@@ -160,7 +161,9 @@ class PG(object):
                 bs_ = bs_.to(device) 
 
             itr_num, pointer, ((log_prob, entropy), _) = self.Actor(bs, baction)
-            loss_a.append(-(br * torch.exp(log_prob - blog_prob)).detach() * log_prob - 1e-2 * entropy)
+            data_term = -(br * torch.exp(log_prob - blog_prob)).detach() * log_prob
+            reg_term = - config.REG_FACTOR * entropy
+            loss_a.append(data_term + reg_term)
         loss_a = torch.stack(loss_a).mean()
         self.atrain.zero_grad()
         loss_a.backward()

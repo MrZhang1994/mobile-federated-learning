@@ -82,21 +82,21 @@ TIME_COMPRESSION_RATIO = 0.1
 # ==========================
 # Parameters for ddpg
 # ==========================
-MEMORY_CAPACITY = 50 # size of experience pool
+MEMORY_CAPACITY = 5 # size of experience pool
 LR_A = 0.01         # learning rate for actor
 LR_C = 0.001        # learning rate for critic
 GAMMA = 0.9         # reward discount
 TAU = 0.01          # soft replacement
 use_gpu = False      # use GPU or not
 AMEND_RATE = 1
-NAIVE_PG = False
+NAIVE_PG = True
+REG_FACTOR = 0.005
 DONT_TRAIN = False
-
 # ==========================
 # Parameters for multi-layer PointerNetwork
 # ==========================
 FEATURE_DIMENSION = 4
-MAXIMUM_CLIENT_NUM_PLUS_ONE = 80
+MAXIMUM_CLIENT_NUM_PLUS_ONE = 81
 EMBEDDING_DIMENSION = 16
 HIDDEN_DIMENSION = 16
 LSTM_LAYERS_NUM = 1

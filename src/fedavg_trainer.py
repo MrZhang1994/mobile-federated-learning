@@ -36,7 +36,7 @@ class FedAvgTrainer(object):
         self.time_counter = channel_data['Time'][0]
         self.cum_time = self.time_counter
         self.time_in_day = self.time_counter
-        self.day_num = self.time_counter
+        self.day_num = self.time_counter // 3800
 
         self.model_init = copy.deepcopy(model)
         self.model_global = model
@@ -189,6 +189,8 @@ class FedAvgTrainer(object):
                 self.cum_time += math.ceil(TIME_COMPRESSION_RATIO*(sum(time_interval_lst) / len(time_interval_lst)))
 
             if self.cum_time // 3800 != self.day_num:
+                test_acc = self.local_test_on_all_clients(self.model_global, round_idx)
+                trainer_csv_line.append(test_acc)
                 self.model_global = copy.deepcopy(self.model_init)
             self.time_in_day = self.cum_time % 3800
             self.day_num = self.cum_time // 3800
@@ -220,9 +222,8 @@ class FedAvgTrainer(object):
                 
                 trainer_csv_line.append(loss_avg)
 
-            if round_idx and round_idx % self.args.frequency_of_the_test == 0 or round_idx == self.args.comm_round - 1:
+            if round_idx and self.args.frequency_of_the_test and round_idx % self.args.frequency_of_the_test == 0 or round_idx == self.args.comm_round - 1:
                 test_acc = self.local_test_on_all_clients(self.model_global, round_idx)
-                
                 trainer_csv_line.append(test_acc)
             
             # write headers for csv
