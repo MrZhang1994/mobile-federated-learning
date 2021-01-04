@@ -35,10 +35,7 @@ class FedAvgTrainer(object):
         # time counter starts from the first line
         self.time_counter = channel_data['Time'][0]
         self.cum_time = self.time_counter
-        self.time_in_day = self.time_counter
-        self.day_num = self.time_counter // 3800
 
-        self.model_init = copy.deepcopy(model)
         self.model_global = model
         self.model_global.train()
 
@@ -188,12 +185,6 @@ class FedAvgTrainer(object):
                 self.time_counter += math.ceil(TIME_COMPRESSION_RATIO*(sum(time_interval_lst) / len(time_interval_lst)))
                 self.cum_time += math.ceil(TIME_COMPRESSION_RATIO*(sum(time_interval_lst) / len(time_interval_lst)))
 
-            if self.cum_time // 3800 != self.day_num:
-                test_acc = self.local_test_on_all_clients(self.model_global, round_idx)
-                trainer_csv_line.append(test_acc)
-                self.model_global = copy.deepcopy(self.model_init)
-            self.time_in_day = self.cum_time % 3800
-            self.day_num = self.cum_time // 3800
             logger.debug("time_counter after training: {}".format(self.time_counter))
             
             trainer_csv_line += [self.time_counter-trainer_csv_line[1], np.var(local_loss_lst), str(loss_list)]

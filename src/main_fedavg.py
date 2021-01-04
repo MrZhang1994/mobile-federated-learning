@@ -307,7 +307,7 @@ def main():
 
     # initialize the wandb.
     wandb.init(
-        project="fedavg",
+        project=os.environ.get("PROJECT", "fedavg"),
         name="FedAVG-" + str(args.method)[4:] + "-r" + str(args.comm_round) + "-lr" + str(args.lr),
         config=global_hyp
     )
@@ -316,6 +316,10 @@ def main():
 
     trainer = FedAvgTrainer(dataset, model, device, args)
     trainer.train()
+
+    wandb.save(trainer_csv)
+    wandb.save(scheduler_csv)
+    wandb.save(FPF_csv)
 
 if __name__ == "__main__":
     main()
