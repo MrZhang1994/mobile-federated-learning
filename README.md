@@ -7,7 +7,13 @@
     ```python
         sys.path.insert(0, os.path.abspath("/home/zzp1012/FedML")) # add the root dir of FedML
     ```
-3. Follow the instruction or documentation of [FedML](https://github.com/FedML-AI/FedML) to install required package in python environment.
+3. Follow the instruction or documentation of [FedML](https://github.com/FedML-AI/FedML) to install required package in python environment. Or, you can simply create an virtural environment with `python>=3.8` and run `pip install -r requirements.txt` to download the required packages. If you use `anaconda3` or `miniconda`, you can run following instructions to download the required packages in python. 
+    ```bash
+        conda create -y -n mfl python=3.8
+        conda activate mfl
+        pip install pip --upgrade
+        pip install -r requirements.txt
+    ```
 
 ## Experimental Tracking Platform 
 
@@ -16,6 +22,9 @@ report real-time result to wandb.com, please change ID to your own
 ```
 wandb login `Your ID`
 ```
+
+Also, we integrate tensorboard into our training process. With the instruction in [Tensorboard Instructions](https://www.jianshu.com/p/46eb3004beca), you can easily check the learning curve in tensorboard.
+
 
 ## Experiment Scripts
 
@@ -53,6 +62,14 @@ sh run_fedavg_standalone_pytorch.sh 0 100 cifar10 [Your PATH to FedML]/data/cifa
 ```
 
 All above datasets are heterogeneous non-i.i.d distributed.
+
+### Clean Partial Results
+There might be some partial results generated during training which are stored in following directories, including `./src/wandb`, `./src/__pycache`, `./src/runs` and `./src/result`. They may not be used anymore. If you want to remove them from the current workspace and make sure to backup the dir `./src/result` which stores almost all the information of training process, you can simply run the following instruction. 
+
+```bash
+    sh clean.sh
+```
+
 
 ### Benchmark Results
 We publish benchmark experimental results at wanb.com: \
