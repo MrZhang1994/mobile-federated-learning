@@ -214,7 +214,8 @@ class FedAvgTrainer(object):
                 if counting_days >= RESTART_DAYS:
                     logger.info("################schedualing restarts")
                     for key in w_glob.keys():
-                        w_glob[key] = torch.rand(w_glob[key].size())  
+                        w_glob[key] = torch.rand(w_glob[key].size()) 
+                    self.model_global.load_state_dict(w_glob) 
                 if counting_days >= DATE_LENGTH:
                     logger.info("################training stops")
                     break            
