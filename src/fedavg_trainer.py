@@ -182,36 +182,22 @@ class FedAvgTrainer(object):
             if time_interval_lst:
                 self.time_counter += math.ceil(TIME_COMPRESSION_RATIO*(sum(time_interval_lst) / len(time_interval_lst)))
             logger.debug("time_counter after training: {}".format(self.time_counter))
-            
-            trainer_csv_line += [self.time_counter-trainer_csv_line[1], np.var(local_loss_lst), str(loss_list)]
-            
-            # if current time_counter has exceed the channel table, I will simply stop early
-            if self.time_counter >= channel_data["Time"].max():
-                logger.info("################schedualing restarts")
-                if counting_days == RESTART_DAYS:
-                    for key in w_glob.keys():
-                        w_glob[key] = torch.rand(w_glob[key].size())
-                    counting_days = 0
-                else:
-                    counting_days += 1                
-                self.time_counter = 0
             # set the time_counter 
             self.time_counter = np.array(channel_data['Time'][channel_data['Time'] > self.time_counter])[0]
+            
+            trainer_csv_line += [self.time_counter-trainer_csv_line[1], np.var(local_loss_lst), str(loss_list)]
             
             # print loss
             if not loss_locals:
                 logger.info('Round {:3d}, Average loss None'.format(round_idx))
-                
                 trainer_csv_line.append('None')
             else:
                 loss_avg = sum(loss_locals) / len(loss_locals)
                 logger.info('Round {:3d}, Average loss {:.3f}'.format(round_idx, loss_avg))
-                
                 trainer_csv_line.append(loss_avg)
 
             if round_idx % self.args.frequency_of_the_test == 0 or round_idx == self.args.comm_round - 1:
                 test_acc = self.local_test_on_all_clients(self.model_global, round_idx)
-                
                 trainer_csv_line.append(test_acc)
             
             # write headers for csv
@@ -221,6 +207,17 @@ class FedAvgTrainer(object):
                     csv_writer.writerow(['round index', 'time counter', 'client index', 'train time', 'fairness', 'local loss', 'global loss', 'test accuracy'])
                 csv_writer.writerow(trainer_csv_line)
                 file.flush()
+
+            # if current time_counter has exceed the channel table, I will simply stop early
+            if self.time_counter >= time_cnt_max[counting_days]:
+                counting_days += 1
+                if counting_days >= RESTART_DAYS:
+                    logger.info("################schedualing restarts")
+                    for key in w_glob.keys():
+                        w_glob[key] = torch.rand(w_glob[key].size())  
+                if counting_days >= DATE_LENGTH:
+                    logger.info("################training stops")
+                    break            
            
     def tx_time(self, client_indexes):
         if not client_indexes:
@@ -316,3 +313,5 @@ class FedAvgTrainer(object):
         wandb.log({"Test/Acc": test_acc, "round": round_idx})
         wandb.log({"Test/Loss": test_loss, "round": round_idx})
         logger.info(stats)
+
+        return test_acc
