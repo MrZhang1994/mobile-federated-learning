@@ -183,7 +183,7 @@ class Scheduler_MPN:
             loss = [loss_a, td_error]
         # ================================================================================================
         # produce action and mes
-        if round_idx<100:
+        if round_idx < config.AMEND_ITER:
             itr_num, pointer, hidden_states = self.agent.choose_action_withAmender(state)
         else:
             itr_num, pointer, hidden_states = self.agent.choose_action(state)

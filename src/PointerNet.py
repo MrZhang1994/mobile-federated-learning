@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn import Parameter
 import torch.nn.functional as F
+import config
 # torch.cuda.set_device(1)
 
 class Encoder(nn.Module):
@@ -246,7 +247,8 @@ class Decoder(nn.Module):
             else:
                 if not single_ptr and i == 0 and input_length > 1:
                     masked_outs[:, -1] = 0  # sample at least one client
-                a_distribution = torch.distributions.Categorical(masked_outs)
+                a_distribution = torch.distributions.Categorical(
+                    mask if config.RL_UNIFORM else masked_outs)
                 if action is None:
                     indices = a_distribution.sample()
                 elif i < len(action):

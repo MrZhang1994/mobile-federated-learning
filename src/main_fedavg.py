@@ -307,8 +307,8 @@ def main():
 
     # initialize the wandb.
     wandb.init(
-        project=os.environ.get("PROJECT", "fedavg"),
-        name="FedAVG-" + str(args.method)[4:] + "-r" + str(args.comm_round) + "-lr" + str(args.lr),
+        project=PROJECT,
+        name=f"FedAVG-{args.method[4:]}-r{args.comm_round}-lr{args.lr}-{RL_PRESET}",
         config=global_hyp
     )
 
