@@ -9,11 +9,11 @@ from tensorboardX import SummaryWriter
 # ===============================
 # set the data dir
 CHANNEL_DATA_DIR = "../data"
-DATE_LENGTH = 10
+DATE_LENGTH = 20
 # read channel data at once.
 channel_data = pd.concat([pd.read_csv(CHANNEL_DATA_DIR+'/'+str(csv_name)+'.csv'
                          # error_bad_lines=False
-                         ) for csv_name in range(1001, 1001+DATE_LENGTH)], ignore_index = True)
+                         ) for csv_name in range(1008, 1008+DATE_LENGTH)], ignore_index = True)
 # restrict the number of client_num_in_total to maxmium car ID + 1
 client_num_in_total = channel_data['Car'].max() + 1
 client_num_per_round = 100 # number of local clients
@@ -75,7 +75,7 @@ RES_RATIO = 0.1 # the ratio of radio_res
 G1 = 2
 G2 = 2
 # set the number of days until reinitialize the model
-RESTART_DAYS = 1
+RESTART_DAYS = 3
 # set the speed of the time_counter's increasing.
 TIME_COMPRESSION_RATIO = 0.1
 
