@@ -207,7 +207,7 @@ class Scheduler_MPN:
                                     str(state[0].tolist()), str(pointer),\
                                     str(client_indexes), itr_num])
             file.flush()
-        return client_indexes, local_itr
+        return client_indexes, local_itr, reward
 
 def sch_random(round_idx, time_counter):
     # set the seed
@@ -257,7 +257,7 @@ def sch_rrobin(round_idx, time_counter):
     local_itr = np.random.randint(2) + 1
     return client_indexes, local_itr
 
-def sch_loss(round_idx, time_counter):
+def sch_loss(round_idx, time_counter, loss_locals):
     cars = list(channel_data[channel_data['Time'] == time_counter]['Car'])
 
     if len(loss_locals) == 0:  # no loss value before, random choose

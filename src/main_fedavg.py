@@ -13,7 +13,8 @@ import torch
 import wandb
 
 from fedavg_trainer import FedAvgTrainer
-from config import *
+import config
+from config import logger, logger_sch
 
 # add the root dir of FedML
 sys.path.insert(0, os.path.abspath("/zzp/FedML")) 
@@ -170,7 +171,7 @@ def load_data(args, dataset_name):
         client_num, train_data_num, test_data_num, train_data_global, test_data_global, \
         train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
         class_num = data_loader(args.dataset, args.data_dir, args.partition_method,
-                                args.partition_alpha, client_num_in_total, args.batch_size)
+                                args.partition_alpha, config.client_num_in_total, args.batch_size)
 
     if full_batch:
         logger.info("-------------batches combine------------")
@@ -256,26 +257,19 @@ def main():
         logger_sch.setLevel(logging.INFO)
     logger.debug("--------DEBUG enviroment start---------")
     
+    global_hyp = dict()
+    for k, v in config.__dict__.items():
+        if type(v) in [int, float, str, bool] and not k.startswith('_'):
+            global_hyp.update({k: v})
+    for k, v in args.__dict__.items():
+        if type(v) in [int, float, str, bool] and not k.startswith('_'):
+            global_hyp.update({k: v})
+
     # show the upate information
-    logger.debug("-------global parameters setting-------")
-    logger.debug("RES_WEIGHT: {}".format(RES_WEIGHT))
-    logger.debug("RES_RATIO: {}".format(RES_RATIO))
-    logger.debug("G1: {}".format(G1))
-    logger.debug("G2: {}".format(G2))
-    logger.debug("RESTART_DAYS: {}".format(RESTART_DAYS))
-    logger.debug("DATE_LENGTH {}".format(DATE_LENGTH))
-    logger.debug("TIME_COMPRESSION_RATIO: {}".format(TIME_COMPRESSION_RATIO))
+    logger.info("--------global parameters setting-------")
+    logger.info(global_hyp)
 
-    logger.debug("------ordinary parameter setting-------")
-    logger.info(args)
-
-    # show other information
-    logger.debug("-----------Other information-----------")
-    logger.debug("CHANNEL_DATA_DIR {}".format(CHANNEL_DATA_DIR))
-    logger.debug("client_num_in_total: {}".format(client_num_in_total))
-    logger.debug("client_num_in_total: {}".format(client_num_per_round))
-
-    logger.debug("---------cuda device setting-----------")
+    logger.info("---------cuda device setting-----------")
     if torch.cuda.is_available():
         if args.gpu >= torch.cuda.device_count():
             logger.error("CUDA error, invalid device ordinal")
@@ -284,7 +278,7 @@ def main():
         logger.error("Plz choose other machine with GPU to run the program")
         exit(1)
     device = torch.device("cuda:" + str(args.gpu))
-    logger.debug(device)
+    logger.info(device)
 
     # load data
     logger.info("-------------dataset loading------------")
@@ -302,13 +296,17 @@ def main():
     wandb.init(
         project="fedavg",
         name="FedAVG-" + str(args.method)[4:] + "-r" + str(args.comm_round) + "-lr" + str(args.lr),
-        config=args
+        config=global_hyp
     )
 
     logger.debug("------------finish setting-------------")
 
     trainer = FedAvgTrainer(dataset, model, device, args)
     trainer.train()
+
+    wandb.save(config.trainer_csv)
+    wandb.save(config.scheduler_csv)
+    wandb.save(config.FPF_csv)
 
 if __name__ == "__main__":
     main()

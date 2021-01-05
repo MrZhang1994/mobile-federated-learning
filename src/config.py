@@ -74,6 +74,8 @@ G2 = 2
 RESTART_DAYS = 3
 # set the speed of the time_counter's increasing.
 TIME_COMPRESSION_RATIO = 0.1
+# set if evaluate on train dataset
+EVAL_ON_TRAIN = True
 
 # ==========================
 # Parameters for ddpg
