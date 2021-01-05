@@ -31,9 +31,6 @@ report real-time result to wandb.com, please change ID to your own
 wandb login `Your ID`
 ```
 
-Also, we integrate tensorboard into our training process. With the instruction in [Tensorboard Instructions](https://www.jianshu.com/p/46eb3004beca), you can easily check the learning curve in tensorboard.
-
-
 ## Experiment Scripts
 
 To test whether program are correctly configured, you can run following commands to see whether training process starts correctly.
