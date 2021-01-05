@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
-for method in ddpg pg random ddpg_baseline pg_amender
+for method in ddpg pg random ddpg_baseline pg_amender pg_noamender
 do
-  RL_PRESET=$method sh begin.sh
+    RL_PRESET=$method ./begin.sh
 done
-
