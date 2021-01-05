@@ -78,7 +78,7 @@ TIME_COMPRESSION_RATIO = 0.1
 # ==========================
 # Parameters for rl
 # ==========================
-PROJECT = 'fedavg_rl2'
+PROJECT = 'fedavg_rl3'
 RL_PRESET = os.environ.get('RL_PRESET', 'pg_noamender')
 assert RL_PRESET in ['ddpg', 'pg', 'random', 'ddpg_baseline', 'pg_amender', 'pg_noamender']
 LR_A = 0.01         # learning rate for actor
@@ -87,7 +87,7 @@ GAMMA = 0.9         # reward discount
 TAU = 0.01          # soft replacement
 use_gpu = False      # use GPU or not
 AMEND_RATE = 1
-REG_FACTOR = 0.005
+REG_FACTOR = 0.001
 NAIVE_PG = 'ddpg' not in RL_PRESET
 MEMORY_CAPACITY = 4 if NAIVE_PG else 50 # size of experience pool
 AMEND_ITER = 100 if 'amender' not in RL_PRESET else 1e12
