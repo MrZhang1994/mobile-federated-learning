@@ -1,4 +1,4 @@
-# Federated Averaging
+# Federated Averaging ![visitors](https://visitor-badge.glitch.me/badge?page_id=MrZhang1994.mobile-federated-learning)
 
 ## Requirements
 
@@ -7,6 +7,9 @@
         nvidia-smi
     ```
 2. Download the repo on Github [FedML](https://github.com/FedML-AI/FedML)
+    ```bash
+        git clone https://github.com/FedML-AI/FedML.git
+    ```
 3. Follow the instruction or documentation of [FedML](https://github.com/FedML-AI/FedML) to install required package in python environment. Or, you can simply create an virtural environment with `python>=3.8` and run `pip install -r requirements.txt` to download the required packages. If you use `anaconda3` or `miniconda`, you can run following instructions to download the required packages in python. 
     ```bash
         conda create -y -n mfl python=3.8
