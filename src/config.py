@@ -9,11 +9,13 @@ from tensorboardX import SummaryWriter
 # ===============================
 # set the data dir
 CHANNEL_DATA_DIR = "../data"
-DATE_LENGTH = 20
+START_DATE = 1001
+DATE_LENGTH = 27
 # read channel data at once.
 channel_data = pd.concat([pd.read_csv(CHANNEL_DATA_DIR+'/'+str(csv_name)+'.csv'
                          # error_bad_lines=False
-                         ) for csv_name in range(1008, 1008+DATE_LENGTH)], ignore_index = True)
+                         ) for csv_name in range(START_DATE, START_DATE+DATE_LENGTH)], ignore_index = True)
+time_cnt_max = [pd.read_csv(os.path.join(CHANNEL_DATA_DIR, str(csv_name)+'.csv'))["Time"].max() for csv_name in range(START_DATE, START_DATE+DATE_LENGTH)] 
 # restrict the number of client_num_in_total to maxmium car ID + 1
 client_num_in_total = channel_data['Car'].max() + 1
 client_num_per_round = 100 # number of local clients
@@ -82,7 +84,7 @@ TIME_COMPRESSION_RATIO = 0.1
 # ==========================
 # Parameters for rl
 # ==========================
-PROJECT = 'fedavg'
+PROJECT = 'fedavg_test'
 RL_PRESET = 'pg'
 assert RL_PRESET in ['ddpg', 'pg', 'random', 'ddpg_baseline', 'pg_amender']
 LR_A = 0.01         # learning rate for actor
@@ -102,7 +104,7 @@ DONT_TRAIN = 'random' in RL_PRESET or 'baseline' in RL_PRESET
 # Parameters for multi-layer PointerNetwork
 # ==========================
 FEATURE_DIMENSION = 4
-MAXIMUM_CLIENT_NUM_PLUS_ONE = 81
+MAXIMUM_CLIENT_NUM_PLUS_ONE = 100
 EMBEDDING_DIMENSION = 16
 HIDDEN_DIMENSION = 16
 LSTM_LAYERS_NUM = 1
