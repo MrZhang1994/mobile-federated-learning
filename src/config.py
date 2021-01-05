@@ -8,8 +8,8 @@ import pandas as pd
 # ===============================
 # set the data dir
 CHANNEL_DATA_DIR = "../data"
-START_DATE = 1001
-DATE_LENGTH = 27
+START_DATE = 1008
+DATE_LENGTH = 20
 # read channel data at once.
 channel_data = pd.concat([pd.read_csv(CHANNEL_DATA_DIR+'/'+str(csv_name)+'.csv'
                          # error_bad_lines=False
