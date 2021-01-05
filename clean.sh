@@ -1,8 +1,8 @@
 # define global variables
 NAME=$1
 WANDB="./src/wandb/"
-RUNS="./src/runs/"
 CACHE="./src/__pycache__/"
+CACHE2="./src/utils/__pycache__/"
 DATE=$(date +%F-%H-%M-%S)
 RESULT="./src/result/"
 OUTS="./outs"
@@ -25,17 +25,17 @@ fi
 
 # remove wandb dir 
 if [ -d "$WANDB" ]; then
-rm -rf $WANDB
+      rm -rf $WANDB
 fi
 
-# remove runs dir
-if [ -d "$RUNS" ]; then
-rm -rf $RUNS
-fi
-
-# remove __pycache__ dir
+# remove __pycache dir
 if [ -d "$CACHE" ]; then
-rm -rf $CACHE
+      rm -rf $CACHE
+fi
+
+# remove utils/__pycache__ dir
+if [ -d "$CACHE2" ]; then
+      rm -rf $CACHE2
 fi
 
 if [ -d "$RESULT" ]; then
