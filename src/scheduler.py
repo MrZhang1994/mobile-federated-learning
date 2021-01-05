@@ -8,7 +8,7 @@ import pandas as pd
 import time
 import copy
 
-import ddpg_mpn
+import utils.ddpg_mpn as ddpg_mpn
 import config
 
 # get some global variables
