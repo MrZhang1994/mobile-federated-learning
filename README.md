@@ -64,12 +64,19 @@ sh run_fedavg_standalone_pytorch.sh 0 100 cifar10 [Your PATH to FedML]/data/cifa
 All above datasets are heterogeneous non-i.i.d distributed.
 
 ### Clean Partial Results
-There might be some partial results generated during training which are stored in following directories, including `./src/wandb`, `./src/__pycache`, `./src/runs` and `./src/result`. They may not be used anymore. If you want to remove them from the current workspace and make sure to backup the dir `./src/result` which stores almost all the information of training process, you can simply run the following instruction. 
+There might be some partial results generated during training which are stored in following directories, including `./src/wandb`, `./src/__pycache`, `./src/runs` and `./src/result`. They may not be used anymore. If you want to remove them from the current workspace and make sure to backup the dir `./src/result` which stores almost all the information of training process to dir `./src/outs`, you can simply run the following instruction. 
 
 ```bash
     sh clean.sh
 ```
 
+Or, you want to specify the name of the backup file, you can run
+
+```bash
+    sh clean.sh [NAME]
+```
+
+One usage example can be shown by run `sh clean.sh help`.
 
 ### Benchmark Results
 We publish benchmark experimental results at wanb.com: \
