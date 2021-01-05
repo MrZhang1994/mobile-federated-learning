@@ -26,6 +26,7 @@ class FedAvgTrainer(object):
         self.test_global = test_data_global
         self.train_data_num_in_total = train_data_num
         self.test_data_num_in_total = test_data_num
+        self.class_num = class_num
 
         self.client_list = []
         self.train_data_local_num_dict = train_data_local_num_dict
@@ -88,6 +89,8 @@ class FedAvgTrainer(object):
         """
         for round_idx in range(self.args.comm_round):
             logger.info("################Communication round : {}".format(round_idx))
+            # set the time_counter 
+            self.time_counter = np.array(channel_data['Time'][channel_data['Time'] >= self.time_counter])[0]
             logger.info("time_counter: {}".format(self.time_counter))
    
             self.model_global.train()
@@ -121,7 +124,7 @@ class FedAvgTrainer(object):
             self.tx_time(client_indexes) # transmit time
             
             # store the last model's training parameters.
-            last_w = self.model_global.cpu().state_dict() 
+            last_w = copy.deepcopy(self.model_global.cpu().state_dict())
             # local Initialization
             w_locals, loss_locals, time_interval_lst, loss_list = [], [], [], []
             """
@@ -186,8 +189,6 @@ class FedAvgTrainer(object):
                 self.cum_time += math.ceil(TIME_COMPRESSION_RATIO*(sum(time_interval_lst) / len(time_interval_lst)))
 
             logger.debug("time_counter after training: {}".format(self.time_counter))
-            # set the time_counter 
-            self.time_counter = np.array(channel_data['Time'][channel_data['Time'] > self.time_counter])[0]
             
             trainer_csv_line += [self.time_counter-trainer_csv_line[1], np.var(local_loss_lst), str(loss_list)]
             
@@ -214,11 +215,9 @@ class FedAvgTrainer(object):
             # if current time_counter has exceed the channel table, I will simply stop early
             if self.time_counter >= time_cnt_max[counting_days]:
                 counting_days += 1
-                if counting_days >= RESTART_DAYS:
-                    logger.info("################schedualing restarts")
-                    for key in w_glob.keys():
-                        w_glob[key] = torch.rand(w_glob[key].size()) 
-                    self.model_global.load_state_dict(w_glob) 
+                if counting_days % RESTART_DAYS == 0:
+                    logger.info("################reinitialize model") 
+                    self.model_global = self.args.create_model(self.args, model_name=self.args.model, output_dim=self.class_num)
                 if counting_days >= DATE_LENGTH:
                     logger.info("################training stops")
                     break     
@@ -253,7 +252,7 @@ class FedAvgTrainer(object):
 
     def aggregate(self, w_locals):
         if not w_locals:
-            return self.model_global.cpu().state_dict()
+            return copy.deepcopy(self.model_global.cpu().state_dict())
         training_num = 0
         for idx in range(len(w_locals)):
             (sample_num, averaged_params) = w_locals[idx]

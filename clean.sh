@@ -1,10 +1,27 @@
 # define global variables
+NAME=$1
 WANDB="./src/wandb/"
 RUNS="./src/runs/"
 CACHE="./src/__pycache__/"
 DATE=$(date +%F-%H-%M-%S)
 RESULT="./src/result/"
 OUTS="./outs"
+
+usage() {
+	echo "Usage: $0 NAME"
+	echo "---------------------------------------------------------------"
+	echo "> NAME   |   specify the name of backup result file"
+	echo "---------------------------------------------------------------"
+	echo "example: $ sh ./clean.sh NAME"
+	echo "1. remove cache directories in ./src/"
+      echo "2. backup ./src/result as ./outs/NAME-results.tar"
+	echo "---------------------------------------------------------------"
+	exit 2
+}
+
+if [ "$NAME" = "help" ]; then
+      usage
+fi
 
 # remove wandb dir 
 if [ -d "$WANDB" ]; then
@@ -22,10 +39,15 @@ rm -rf $CACHE
 fi
 
 if [ -d "$RESULT" ]; then
-      tar -cvf ${DATE}-results.tar $RESULT
-      rm -rf $RESULT
       if [ ! -d "$OUTS" ]; then
             mkdir $OUTS
       fi
-      mv ${DATE}-results.tar $OUTS
+      if [ -z "$NAME" ]; then
+            tar -cvf ${DATE}-results.tar $RESULT
+            mv ${DATE}-results.tar $OUTS
+      else
+            tar -cvf ${NAME}-results.tar $RESULT
+            mv ${NAME}-results.tar $OUTS
+      fi
+      rm -rf $RESULT
 fi

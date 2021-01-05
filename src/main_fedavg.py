@@ -303,6 +303,7 @@ def main():
     # In this case, please use our FedML distributed version (./fedml_experiments/distributed_fedavg)
     logger.debug("-------------model setting-------------")
     model = create_model(args, model_name=args.model, output_dim=dataset[-1])
+    args.create_model = create_model # contain the function of create a model.
     logger.debug(model)
 
     # initialize the wandb.

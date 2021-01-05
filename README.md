@@ -1,11 +1,16 @@
-# Federated Averaging
+# Federated Averaging 
+
+![visitors](https://visitor-badge.glitch.me/badge?page_id=MrZhang1994.mobile-federated-learning)
 
 ## Requirements
 
-1. Download the repo on Github [FedML](https://github.com/FedML-AI/FedML)
-2. Link FedML to here
+1. Make sure GPU is avaible and `CUDA>=11.0` has been installed on your computer. You can check it with
     ```bash
-        ln -s PATH_TO_FEDML .
+        nvidia-smi
+    ```
+2. Download the repo on Github [FedML](https://github.com/FedML-AI/FedML)
+    ```bash
+        git clone https://github.com/FedML-AI/FedML.git
     ```
 3. Follow the instruction or documentation of [FedML](https://github.com/FedML-AI/FedML) to install required package in python environment. Or, you can simply create an virtural environment with `python>=3.8` and run `pip install -r requirements.txt` to download the required packages. If you use `anaconda3` or `miniconda`, you can run following instructions to download the required packages in python. 
     ```bash
@@ -14,6 +19,9 @@
         pip install pip --upgrade
         pip install -r requirements.txt
     ```
+4. Link FedML here
+    ```bash
+        ln -s PATH_TO_FEDML .
 
 ## Experimental Tracking Platform 
 
@@ -64,12 +72,19 @@ sh run_fedavg_standalone_pytorch.sh 0 100 cifar10 [Your PATH to FedML]/data/cifa
 All above datasets are heterogeneous non-i.i.d distributed.
 
 ### Clean Partial Results
-There might be some partial results generated during training which are stored in following directories, including `./src/wandb`, `./src/__pycache`, `./src/runs` and `./src/result`. They may not be used anymore. If you want to remove them from the current workspace and make sure to backup the dir `./src/result` which stores almost all the information of training process, you can simply run the following instruction. 
+There might be some partial results generated during training which are stored in following directories, including `./src/wandb`, `./src/__pycache`, `./src/runs` and `./src/result`. They may not be used anymore. If you want to remove them from the current workspace and make sure to backup the dir `./src/result` which stores almost all the information of training process to dir `./src/outs`, you can simply run the following instruction. 
 
 ```bash
     sh clean.sh
 ```
 
+Or, you want to specify the name of the backup file, you can run
+
+```bash
+    sh clean.sh [NAME]
+```
+
+One usage example can be shown by run `sh clean.sh help`.
 
 ### Benchmark Results
 We publish benchmark experimental results at wanb.com: \
