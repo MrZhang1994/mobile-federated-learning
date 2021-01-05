@@ -2,7 +2,6 @@ import os
 import logging
 from datetime import datetime
 import pandas as pd
-from tensorboardX import SummaryWriter
 
 # ===============================
 # process the channel data
@@ -19,11 +18,6 @@ time_cnt_max = [pd.read_csv(os.path.join(CHANNEL_DATA_DIR, str(csv_name)+'.csv')
 # restrict the number of client_num_in_total to maxmium car ID + 1
 client_num_in_total = channel_data['Car'].max() + 1
 client_num_per_round = 100 # number of local clients
-
-# ===============================
-# setup the tensorboardX
-# ===============================
-boardX = SummaryWriter(comment="fedavg")
 
 # ===============================
 # set up threads for numpy
