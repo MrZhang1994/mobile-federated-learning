@@ -87,6 +87,8 @@ class FedAvgTrainer(object):
         """
         for round_idx in range(self.args.comm_round):
             logger.info("################Communication round : {}".format(round_idx))
+            # set the time_counter 
+            self.time_counter = np.array(channel_data['Time'][channel_data['Time'] >= self.time_counter])[0]
             logger.info("time_counter: {}".format(self.time_counter))
    
             self.model_global.train()
@@ -182,8 +184,6 @@ class FedAvgTrainer(object):
             if time_interval_lst:
                 self.time_counter += math.ceil(TIME_COMPRESSION_RATIO*(sum(time_interval_lst) / len(time_interval_lst)))
             logger.debug("time_counter after training: {}".format(self.time_counter))
-            # set the time_counter 
-            self.time_counter = np.array(channel_data['Time'][channel_data['Time'] > self.time_counter])[0]
             
             trainer_csv_line += [self.time_counter-trainer_csv_line[1], np.var(local_loss_lst), str(loss_list)]
             
@@ -211,7 +211,7 @@ class FedAvgTrainer(object):
             # if current time_counter has exceed the channel table, I will simply stop early
             if self.time_counter >= time_cnt_max[counting_days]:
                 counting_days += 1
-                if counting_days >= RESTART_DAYS:
+                if counting_days % RESTART_DAYS == 0:
                     logger.info("################schedualing restarts")
                     for key in w_glob.keys():
                         w_glob[key] = torch.rand(w_glob[key].size()) 
