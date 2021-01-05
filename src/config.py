@@ -84,8 +84,8 @@ TIME_COMPRESSION_RATIO = 0.1
 # ==========================
 # Parameters for rl
 # ==========================
-PROJECT = 'fedavg_test'
-RL_PRESET = 'pg'
+PROJECT = 'fedavg'
+RL_PRESET = os.environ.get('RL_PRESET', '')
 assert RL_PRESET in ['ddpg', 'pg', 'random', 'ddpg_baseline', 'pg_amender']
 LR_A = 0.01         # learning rate for actor
 LR_C = 0.001        # learning rate for critic
