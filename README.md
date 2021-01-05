@@ -1,4 +1,6 @@
-# Federated Averaging ![visitors](https://visitor-badge.glitch.me/badge?page_id=MrZhang1994.mobile-federated-learning)
+# Federated Averaging 
+
+![visitors](https://visitor-badge.glitch.me/badge?page_id=MrZhang1994.mobile-federated-learning)
 
 ## Requirements
 
