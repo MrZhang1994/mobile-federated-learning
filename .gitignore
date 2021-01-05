@@ -3,6 +3,7 @@ src/result
 src/runs
 src/__pycache__
 src/wandb
+src/utils/__pycache__
 # ignore .vscode
 .vscode/
 # ignore results
