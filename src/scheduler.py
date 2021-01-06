@@ -206,7 +206,7 @@ class Scheduler_MPN:
                 csv_writer.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'reward', 'loss_a', 'loss_c'])
             csv_writer.writerow([time_counter, str(self.available_car[0].tolist()),\
                                     str(state[0].tolist()), str(pointer),\
-                                    str(client_indexes), itr_num])
+                                    str(client_indexes), itr_num, reward, *loss])
             file.flush()
         return client_indexes, local_itr, (reward, *loss)
 
