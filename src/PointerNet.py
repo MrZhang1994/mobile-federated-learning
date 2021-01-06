@@ -245,8 +245,6 @@ class Decoder(nn.Module):
             if deterministic:
                 max_probs, indices = masked_outs.max(1)
             else:
-                if not single_ptr and i == 0 and input_length > 1:
-                    masked_outs[:, -1] = 0  # sample at least one client
                 a_distribution = torch.distributions.Categorical(
                     mask if config.RL_UNIFORM else masked_outs)
                 if action is None:
