@@ -31,7 +31,7 @@ os.environ['NUMEXPR_NUM_THREADS'] = str(round(os.cpu_count() / 2))
 # setup directories for store paritial results
 DAY =  str(datetime.now().month).zfill(2)+str(datetime.now().day).zfill(2)
 MOMENT = str(datetime.now().hour).zfill(2)+str(datetime.now().minute).zfill(2)
-RESULT_PATH = os.path.join("result", DAY, MOMENT)
+RESULT_PATH = "result"
 if os.path.exists(RESULT_PATH) == False:
     os.makedirs(RESULT_PATH)
 
@@ -78,7 +78,7 @@ TIME_COMPRESSION_RATIO = 0.1
 # ==========================
 # Parameters for rl
 # ==========================
-PROJECT = 'fedavg_rl3'
+PROJECT = 'fedavg_rl4'
 RL_PRESET = os.environ.get('RL_PRESET', 'pg_noamender')
 assert RL_PRESET in ['ddpg', 'pg', 'random', 'ddpg_baseline', 'pg_amender', 'pg_noamender']
 LR_A = 0.01         # learning rate for actor

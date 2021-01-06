@@ -97,11 +97,13 @@ class FedAvgTrainer(object):
             
             # get client_indexes from scheduler
             reward = 0
+            loss_a = 0
+            loss_c = 0
             if self.args.method == "sch_mpn" or self.args.method == "sch_mpn_empty":
                 if self.args.method == "sch_mpn_empty" or round_idx == 0:
                     client_indexes, local_itr = self.scheduler.sch_mpn_empty(round_idx, self.time_counter)
                 else:
-                    client_indexes, local_itr, reward = self.scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst[0], local_loss_lst)
+                    client_indexes, local_itr, (reward, loss_a, loss_c) = self.scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst[0], local_loss_lst)
             else:
                 client_indexes, local_itr = self.scheduler(round_idx, self.time_counter)
                 # write to the scheduler csv
@@ -224,6 +226,8 @@ class FedAvgTrainer(object):
 
             wandb.log({
                 "reward": reward,
+                "loss_a": loss_a,
+                "loss_c": loss_c,
                 "round": round_idx,
                 "cum_time": self.cum_time,
                 "local_itr": local_itr,

@@ -6,6 +6,7 @@ import os
 import sys
 import time
 import random
+import subprocess
 
 # Maching learning tool chain.
 import numpy as np
@@ -320,7 +321,8 @@ def main():
 
     wandb.save(trainer_csv)
     wandb.save(scheduler_csv)
-    wandb.save(FPF_csv)
+    subprocess.run(['gzip', FPF_csv])
+    wandb.save(FPF_csv + '.gz')
 
 if __name__ == "__main__":
     main()
