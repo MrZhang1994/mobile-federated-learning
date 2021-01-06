@@ -27,8 +27,6 @@ AMEND_RATE = config.AMEND_RATE
 
 
 def Amender(itr_num, pointer, state):
-    # print(type(pointer))
-    # print(pointer)
     channel_state = state[0, :, 0]
     channel_state_avg = np.mean(channel_state)
     amended_pointer = copy.deepcopy(pointer)
@@ -214,15 +212,6 @@ class DDPG(object):
         self.Critic_eval = CNet(self.max_itr_num, embedding_dim, hidden_dim, lstm_layers)
         self.Critic_target = CNet(self.max_itr_num, embedding_dim, hidden_dim, lstm_layers)
 
-        # self.Actor_eval.load_state_dict(torch.load('result/0512/0512_1015/Actor_eval.pkl'))
-        # self.Actor_eval.eval()
-        # self.Actor_target.load_state_dict(torch.load('result/0512/0512_1015/Actor_target.pkl'))
-        # self.Actor_target.eval()
-        # self.Critic_eval.load_state_dict(torch.load('result/0512/0512_1015/Critic_eval.pkl'))
-        # self.Critic_eval.eval()
-        # self.Critic_target.load_state_dict(torch.load('result/0512/0512_1015/Critic_target.pkl'))
-        # self.Critic_target.eval()
-
         self.ctrain = torch.optim.Adam(self.Critic_eval.parameters(), lr = LR_C)
         self.atrain = torch.optim.Adam(self.Actor_eval.parameters(), lr = LR_A)
         self.loss_td = nn.MSELoss()
@@ -248,11 +237,7 @@ class DDPG(object):
 
         if use_gpu:
             ss = ss.to(device)   
-        # print(ss)
         itr_num, pointer, hidden_states = self.Actor_eval(ss)
-        # print("MPN:")
-        # print(itr_num)
-        # print(pointer)
         if use_gpu:
             itr_num = itr_num.cpu()
             pointer = pointer.cpu()
@@ -261,7 +246,6 @@ class DDPG(object):
         itr_num = itr_num.detach().numpy()+1
         pointer = pointer.detach().numpy()
         count = 0
-        # print(pointer)
         for i in range(len(pointer)):
             if pointer[i] == len(pointer)-1:
                 count = i
@@ -274,7 +258,6 @@ class DDPG(object):
         # # Amender
         itr_num, pointer = Amender(itr_num, pointer, state)
         # ================================================================================================      
-        
         return itr_num, pointer, hidden_states
         
     def choose_action(self, state):
@@ -283,11 +266,7 @@ class DDPG(object):
 
         if use_gpu:
             ss = ss.to(device)   
-        # print(ss)
         itr_num, pointer, hidden_states = self.Actor_eval(ss)
-        # print("MPN:")
-        # print(itr_num)
-        # print(pointer)
         if use_gpu:
             itr_num = itr_num.cpu()
             pointer = pointer.cpu()
@@ -296,7 +275,6 @@ class DDPG(object):
         itr_num = itr_num.detach().numpy()+1
         pointer = pointer.detach().numpy()
         count = 0
-        # print(pointer)
         for i in range(len(pointer)):
             if pointer[i] == len(pointer)-1:
                 count = i
@@ -305,12 +283,8 @@ class DDPG(object):
         else:
             pointer = pointer[0: count]
         hidden_states = hidden_states.detach().numpy()
-        # ================================================================================================
-        # # Amender
-        # itr_num, pointer = Amender(itr_num, pointer, state)
-        # ================================================================================================      
-        
         return itr_num, pointer, hidden_states
+        
     def learn(self):
 
         self.learn_time += 1
@@ -320,7 +294,6 @@ class DDPG(object):
         for target_param, param in zip(self.Actor_target.parameters(), self.Actor_eval.parameters()):
             target_param.data.copy_(target_param.data*(1.0 - TAU) + param.data*TAU)
         
-
         indices = np.random.randint(low = 0, high=MEMORY_CAPACITY)
         bt = self.memory[indices]
         # print(bt)

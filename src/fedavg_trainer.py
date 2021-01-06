@@ -33,11 +33,9 @@ class FedAvgTrainer(object):
         self.train_data_local_dict = train_data_local_dict
         self.test_data_local_dict = test_data_local_dict
         self.setup_clients(train_data_local_num_dict, train_data_local_dict, test_data_local_dict)
+
         # time counter starts from the first line
         self.time_counter = channel_data['Time'][0]
-
-        self.model_global = model
-        self.model_global.train()
 
         # initialize the scheduler function
         if self.args.method == "sch_mpn" or self.args.method == "sch_mpn_empty":
@@ -56,6 +54,9 @@ class FedAvgTrainer(object):
             self.scheduler = sch.sch_loss
         else:
             self.scheduler = sch.sch_random
+
+        self.model_global = model
+        self.model_global.train()
  
  
     def setup_clients(self, train_data_local_num_dict, train_data_local_dict, test_data_local_dict):
@@ -75,14 +76,21 @@ class FedAvgTrainer(object):
         local_loss_lst = np.zeros((1, client_num_in_total)) 
         # counting days
         counting_days, reward = 0, 0
-        # Initialize A for calculating FPF2 index
-        w_diff_mat = torch.zeros((len(self.model_global.state_dict().keys()), int(client_num_in_total))).to(self.device)
+        # initialize values for calculating iteration num
+        delta, rho, beta = np.random.rand(1)[0], np.random.rand(1)[0], np.random.rand(1)[0]
+        # Initialize values for calculating FPF2 index
         local_itr_lst = torch.zeros(self.args.comm_round, int(client_num_in_total)).to(self.device)  # historical local iterations.
-        A_mat = dict() 
-        for para in self.model_global.state_dict().keys():
-            weight_shape = self.model_global.state_dict()[para].numpy().ravel().shape[0]
-            A_mat[para] = torch.ones(weight_shape).to(self.device) # initial the value of A with zero.
-        G_mat = torch.zeros((1, int(client_num_in_total))).to(self.device) # initial the value of G with zero
+        G_mat = torch.zeros(int(client_num_in_total)).to(self.device) # initial the value of G with zero
+        # if weight size is larger than THRESHOLD_WEIGHT_SIZE we will use a simpler method to calculate FPF
+        weight_size = sum([self.model_global.state_dict()[para].numpy().ravel().shape[0] for para in self.model_global.state_dict().keys()])        
+        if weight_size < THRESHOLD_WEIGHT_SIZE:
+            A_mat = torch.ones(weight_size).to(self.device) # initial the value of A with ones.
+            local_w_diffs = torch.zeros((int(client_num_in_total), weight_size)).to(self.device)
+        else:
+            logger.warning("The weight size of the model {} is too large. Thus, we turn to use a more simple method to calculate FPF.".format(self.args.model))
+            LRU_itr_lst = torch.zeros(int(client_num_in_total)).to(self.device) # store the iteration gap for each client.
+        # show weight size for the model.
+        logger.debug("weight size: {}".format(weight_size))
         """
         starts training, entering the loop of command round.
         """
@@ -99,7 +107,7 @@ class FedAvgTrainer(object):
                 if self.args.method == "sch_mpn_empty" or round_idx == 0:
                     client_indexes, local_itr = self.scheduler.sch_mpn_empty(round_idx, self.time_counter)
                 else:
-                    client_indexes, local_itr, reward = self.scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst[0], local_loss_lst)
+                    client_indexes, local_itr, reward = self.scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst, local_loss_lst)
             else:
                 if self.args.method == "sch_loss":
                     if round_idx == 0:
@@ -118,13 +126,9 @@ class FedAvgTrainer(object):
             
             # write one line to trainer_csv
             trainer_csv_line = [round_idx, self.time_counter, str(client_indexes)]
-            
-            # Update local_itr_lst
-            if client_indexes and local_itr > 0: # only if client_idx is not empty and local_iter > 0, then I will update following values
-                local_itr_lst[round_idx, list(client_indexes)] = float(local_itr)
 
             # contribute to time counter
-            self.tx_time(client_indexes) # transmit time
+            self.tx_time(list(client_indexes)) # transmit time
             
             # store the last model's training parameters.
             last_w = copy.deepcopy(self.model_global.cpu().state_dict())
@@ -156,35 +160,18 @@ class FedAvgTrainer(object):
                 loss_locals.append(loss)
                 # update the local_loss_lst
                 local_loss_lst[0, client_idx] = loss
-                # update w_diff_mat
-                for i, para in enumerate(self.model_global.state_dict().keys()):
-                    w_diff_mat[i, idx] = torch.norm((w[para].to(self.device).reshape((-1, )) - last_w[para].to(self.device).reshape((-1, )))  * A_mat[para])
-
+                # update local_w_diffs
+                if weight_size < THRESHOLD_WEIGHT_SIZE:
+                    local_w_diffs[client_idx, :] = torch.cat([w[para].reshape((-1, )) - last_w[para].reshape((-1, )) for para in self.model_global.state_dict().keys()]).to(self.device)
+                
                 # loss 
                 logger.info('Client {:3d}, loss {:.3f}'.format(client_idx, loss))
                 loss_list.append(loss)
-
-            # update FPF index list
-            FPF2_idx_lst = (w_diff_mat.sum(dim = 0) / G_mat).cpu().numpy()
-            FPF2_idx_lst[np.bitwise_or(np.isnan(FPF2_idx_lst), np.isinf(FPF2_idx_lst))] = 0  
-            # write FPF index list to csv
-            with open(FPF_csv, mode = "a+", encoding='utf-8', newline='') as file:
-                csv_writer = csv.writer(file)
-                if round_idx == 0:
-                    csv_writer.writerow(['time counter'] + ["car_"+str(i) for i in range(client_num_in_total)])
-                csv_writer.writerow([self.time_counter]+FPF2_idx_lst[0].tolist())
-                file.flush()
 
             # update global weights
             w_glob = self.aggregate(w_locals)
             # copy weight to net_glob
             self.model_global.load_state_dict(w_glob)
-            
-           # update A_mat
-            for para in w_glob.keys():
-                A_mat[para] = A_mat[para] * (1 - 1/G2) + (w_glob[para].to(self.device).reshape((-1, )) - last_w[para].to(self.device).reshape((-1, ))) / G2
-            # update G_mat
-            G_mat = G_mat * (1 - 1 / G1) + local_itr_lst.sum(dim=0).reshape((1, -1)) / G1
 
             # update the time counter
             if time_interval_lst:
@@ -202,6 +189,7 @@ class FedAvgTrainer(object):
                 logger.info('Round {:3d}, Average loss {:.3f}'.format(round_idx, loss_avg))
                 trainer_csv_line.append(loss_avg)
 
+            # local test on all client.
             if round_idx % self.args.frequency_of_the_test == 0 or round_idx == self.args.comm_round - 1:
                 test_acc = self.local_test_on_all_clients(self.model_global, round_idx, EVAL_ON_TRAIN)
                 trainer_csv_line.append(test_acc)
@@ -212,15 +200,50 @@ class FedAvgTrainer(object):
                 if round_idx == 0:
                     csv_writer.writerow(['round index', 'time counter', 'client index', 'train time', 'fairness', 'local loss', 'global loss', 'test accuracy'])
                 csv_writer.writerow(trainer_csv_line)
+                file.flush()  
+
+            # update FPF index list
+            if weight_size < THRESHOLD_WEIGHT_SIZE:
+                FPF2_idx_lst = (torch.norm(local_w_diffs * A_mat, dim = 1) / G_mat).cpu().numpy()
+            else:
+                FPF2_idx_lst = (LRU_itr_lst / G_mat).cpu().numpy()
+            FPF2_idx_lst[np.bitwise_or(np.isnan(FPF2_idx_lst), np.isinf(FPF2_idx_lst))] = 0  
+            # write FPF index list to csv
+            with open(FPF_csv, mode = "a+", encoding='utf-8', newline='') as file:
+                csv_writer = csv.writer(file)
+                if round_idx == 0:
+                    csv_writer.writerow(['time counter'] + ["car_"+str(i) for i in range(client_num_in_total)])
+                csv_writer.writerow([trainer_csv_line[1]]+FPF2_idx_lst.tolist())
                 file.flush()
+
+            # calculate delta
+            delta = np.sum([sample_num * torch.norm(torch.cat([w[para].reshape((-1, )) - w_glob[para].reshape((-1, )) for para in self.model_global.state_dict().keys()])).item() for sample_num, w in w_locals]) \
+                / np.sum([sample_num for sample_num, _ in w_locals])
+            # update rho
+            
+
+            if weight_size < THRESHOLD_WEIGHT_SIZE:
+                # update local_w_diffs
+                global_w_diff = torch.cat([w_glob[para].reshape((-1, )) - last_w[para].reshape((-1, )) for para in self.model_global.state_dict().keys()]).to(self.device)
+                local_w_diffs[list(set(list(range(client_num_in_total))) - set(list(client_indexes))), :] -= global_w_diff
+                # update A_mat
+                A_mat = A_mat * (1 - 1/G2) + (global_w_diff) / G2 / global_w_diff.mean()
+            # Update local_itr_lst
+            if list(client_indexes) and local_itr > 0: # only if client_idx is not empty and local_iter > 0, then I will update following values
+                local_itr_lst[round_idx, list(client_indexes)] = float(local_itr)
+                if weight_size >= THRESHOLD_WEIGHT_SIZE:
+                    LRU_itr_lst += float(local_itr)
+                    LRU_itr_lst[list(client_indexes)] = 0
+            # update G_mat
+            G_mat = G_mat * (1 - 1 / G1) + local_itr_lst[round_idx, :] / G1
 
             wandb.log({
                 "reward": reward,
                 "round": round_idx,
-                "cum_time": self.time_counter,
+                "cum_time": trainer_csv_line[1],
                 "local_itr": local_itr,
                 "client_num": len(client_indexes)
-            })  
+            })
 
             # if current time_counter has exceed the channel table, I will simply stop early
             if self.time_counter >= time_cnt_max[counting_days]:

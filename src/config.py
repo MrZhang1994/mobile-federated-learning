@@ -76,6 +76,14 @@ RESTART_DAYS = 3
 TIME_COMPRESSION_RATIO = 0.1
 # set if evaluate on train dataset
 EVAL_ON_TRAIN = True
+# set the threshold value for weight size
+THRESHOLD_WEIGHT_SIZE = 100000
+
+# ===============================
+# set hyperparameters for calculate iteration num
+# ===============================
+# set xi
+xi = 0.999
 
 # ==========================
 # Parameters for ddpg

@@ -87,7 +87,6 @@ class Scheduler_MPN:
         self.agent = ddpg_mpn.DDPG(LSTM_LAYERS_NUM, EMBEDDING_DIMENSION, HIDDEN_DIMENSION, LSTM_LAYERS_NUM)
         self.env = Environment()
 
-        self.FPF1_idx_lst = []
         self.time_counter_last = 0
 
         self.state_last = None
@@ -113,7 +112,7 @@ class Scheduler_MPN:
         local_itr = itr_num
 
         # write to the scheduler csv
-        with open(scheduler_csv, mode = "w+", encoding='utf-8', newline='') as file:
+        with open(scheduler_csv, mode = "a+", encoding='utf-8', newline='') as file:
             csv_writer = csv.writer(file)
             if round_idx == 0:
                 csv_writer.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'reward', 'loss_a', 'loss_c'])
@@ -199,7 +198,7 @@ class Scheduler_MPN:
         self.time_counter_last = time_counter
 
         # write to the scheduler csv
-        with open(scheduler_csv, mode = "w+", encoding='utf-8', newline='') as file:
+        with open(scheduler_csv, mode = "a+", encoding='utf-8', newline='') as file:
             csv_writer = csv.writer(file)
             if round_idx == 0:
                 csv_writer.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'reward', 'loss_a', 'loss_c'])
