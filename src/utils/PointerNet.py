@@ -2,7 +2,8 @@ import torch
 import torch.nn as nn
 from torch.nn import Parameter
 import torch.nn.functional as F
-torch.cuda.set_device(0)
+import config
+# torch.cuda.set_device(1)
 
 class Encoder(nn.Module):
     """
@@ -170,7 +171,10 @@ class Decoder(nn.Module):
     def forward(self, embedded_inputs,
                 decoder_input,
                 hidden,
-                context):
+                context,
+                deterministic=True,
+                action=None,
+                single_ptr=False):
         """
         Decoder - Forward-pass
 
@@ -178,7 +182,7 @@ class Decoder(nn.Module):
         :param Tensor decoder_input: First decoder's input
         :param Tensor hidden: First decoder's hidden states
         :param Tensor context: Encoder's outputs
-        :return: (Output probabilities, Pointers indices), last hidden state
+        :return: (Output probabilities, Pointers indices), last hidden state, action log prob
         """
 
         batch_size = embedded_inputs.size(0)
@@ -196,6 +200,8 @@ class Decoder(nn.Module):
 
         outputs = []
         pointers = []
+        log_prob = 0.
+        entropy = 0.
 
         def step(x, hidden):
             """
@@ -227,7 +233,8 @@ class Decoder(nn.Module):
             return hidden_t, c_t, output
 
         # Recurrence loop
-        for _ in range(input_length):
+        sample_num = 0
+        for i in range(input_length):
             h_t, c_t, outs = step(decoder_input, hidden)
             hidden = (h_t, c_t)
 
@@ -235,7 +242,20 @@ class Decoder(nn.Module):
             masked_outs = outs * mask
 
             # Get maximum probabilities and indices
-            max_probs, indices = masked_outs.max(1)
+            if deterministic:
+                max_probs, indices = masked_outs.max(1)
+            else:
+                a_distribution = torch.distributions.Categorical(
+                    mask if config.RL_UNIFORM else masked_outs)
+                if action is None:
+                    indices = a_distribution.sample()
+                elif i < len(action):
+                    indices = action[:, i]
+                else:
+                    indices = torch.tensor([input_length - 1])
+                log_prob += a_distribution.log_prob(indices)
+                entropy += a_distribution.entropy()
+            sample_num += 1
             one_hot_pointers = (runner == indices.unsqueeze(1).expand(-1, outs.size()[1]))
 
             # Update mask to ignore seen indices
@@ -247,11 +267,14 @@ class Decoder(nn.Module):
 
             outputs.append(outs.unsqueeze(0))
             pointers.append(indices.unsqueeze(1))
+            # TODO: batch support
+            if single_ptr or indices[0] == input_length - 1:
+                break
 
         outputs = torch.cat(outputs).permute(1, 0, 2)
         pointers = torch.cat(pointers, 1)
 
-        return (outputs, pointers), hidden
+        return (outputs, pointers), hidden, (log_prob / sample_num, entropy / sample_num)
 
 
 class PointerNet(nn.Module):
@@ -286,11 +309,13 @@ class PointerNet(nn.Module):
                                bidir)
         self.decoder = Decoder(embedding_dim, hidden_dim)
         self.decoder_input0 = Parameter(torch.FloatTensor(embedding_dim), requires_grad=False)
+        self.log_prob = 0.
+        self.entropy = 0.
 
         # Initialize decoder_input0
         nn.init.uniform(self.decoder_input0, -1, 1)
 
-    def forward(self, inputs):
+    def forward(self, inputs, deterministic=True, action=None, single_ptr=False):
         """
         PointerNet - Forward-pass
 
@@ -317,9 +342,13 @@ class PointerNet(nn.Module):
                                encoder_hidden[1][-1])
 
 
-        (outputs, pointers), decoder_hidden = self.decoder(embedded_inputs,
-                                                           decoder_input0,
-                                                           decoder_hidden0,
-                                                           encoder_outputs)
+        (outputs, pointers), decoder_hidden, (self.log_prob, self.entropy) = \
+            self.decoder(embedded_inputs,
+                         decoder_input0,
+                         decoder_hidden0,
+                         encoder_outputs,
+                         deterministic,
+                         action,
+                         single_ptr)
 
         return  outputs, pointers, decoder_hidden[0]

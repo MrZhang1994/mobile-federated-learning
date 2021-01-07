@@ -6,6 +6,7 @@ import os
 import sys
 import time
 import random
+import subprocess
 
 # Maching learning tool chain.
 import numpy as np
@@ -13,11 +14,10 @@ import torch
 import wandb
 
 from fedavg_trainer import FedAvgTrainer
-import config
-from config import logger, logger_sch
+from config import *
 
 # add the root dir of FedML
-sys.path.insert(0, os.path.abspath("/zzp/FedML")) 
+sys.path.insert(0, os.path.abspath("../FedML-master")) 
 
 from fedml_api.data_preprocessing.cifar10.data_loader import load_partition_data_cifar10
 from fedml_api.data_preprocessing.cifar100.data_loader import load_partition_data_cifar100
@@ -171,7 +171,7 @@ def load_data(args, dataset_name):
         client_num, train_data_num, test_data_num, train_data_global, test_data_global, \
         train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
         class_num = data_loader(args.dataset, args.data_dir, args.partition_method,
-                                args.partition_alpha, config.client_num_in_total, args.batch_size)
+                                args.partition_alpha, client_num_in_total, args.batch_size)
 
     if full_batch:
         logger.info("-------------batches combine------------")
@@ -240,6 +240,14 @@ def create_model(args, model_name, output_dim):
 def main():
     # get all the program arguments.
     args = add_args()
+    import config
+    global_hyp = dict()
+    for k, v in config.__dict__.items():
+        if type(v) in [int, float, str, bool] and not k.startswith('_'):
+            global_hyp.update({k: v})
+    for k, v in args.__dict__.items():
+        if type(v) in [int, float, str, bool] and not k.startswith('_'):
+            global_hyp.update({k: v})
 
     # Set the random seed. The np.random seed determines the dataset partition.
     # The torch_manual_seed determines the initial weight.
@@ -256,18 +264,26 @@ def main():
         logger.setLevel(logging.INFO)
         logger_sch.setLevel(logging.INFO)
     logger.debug("--------DEBUG enviroment start---------")
-    
-    global_hyp = dict()
-    for k, v in config.__dict__.items():
-        if type(v) in [int, float, str, bool] and not k.startswith('_'):
-            global_hyp.update({k: v})
-    for k, v in args.__dict__.items():
-        if type(v) in [int, float, str, bool] and not k.startswith('_'):
-            global_hyp.update({k: v})
+
 
     # show the upate information
     logger.info("--------global parameters setting-------")
-    logger.info(global_hyp)
+    logger.debug("RES_WEIGHT: {}".format(RES_WEIGHT))
+    logger.debug("RES_RATIO: {}".format(RES_RATIO))
+    logger.debug("G1: {}".format(G1))
+    logger.debug("G2: {}".format(G2))
+    logger.debug("RESTART_DAYS: {}".format(RESTART_DAYS))
+    logger.debug("DATE_LENGTH {}".format(DATE_LENGTH))
+    logger.debug("TIME_COMPRESSION_RATIO: {}".format(TIME_COMPRESSION_RATIO))
+    
+    logger.debug("------ordinary parameter setting-------")
+    logger.info(args)
+
+    # show other information
+    logger.debug("-----------Other information-----------")
+    logger.debug("CHANNEL_DATA_DIR {}".format(CHANNEL_DATA_DIR))
+    logger.debug("client_num_in_total: {}".format(client_num_in_total))
+    logger.debug("client_num_in_total: {}".format(client_num_per_round))
 
     logger.info("---------cuda device setting-----------")
     if torch.cuda.is_available():
@@ -294,8 +310,8 @@ def main():
 
     # initialize the wandb.
     wandb.init(
-        project="fedavg",
-        name="FedAVG-" + str(args.method)[4:] + "-r" + str(args.comm_round) + "-lr" + str(args.lr),
+        project=PROJECT,
+        name=RL_PRESET,
         config=global_hyp
     )
 
@@ -304,9 +320,10 @@ def main():
     trainer = FedAvgTrainer(dataset, model, device, args)
     trainer.train()
 
-    wandb.save(config.trainer_csv)
-    wandb.save(config.scheduler_csv)
-    wandb.save(config.FPF_csv)
+    wandb.save(trainer_csv)
+    wandb.save(scheduler_csv)
+    subprocess.run(['gzip', FPF_csv])
+    wandb.save(FPF_csv + '.gz')
 
 if __name__ == "__main__":
     main()

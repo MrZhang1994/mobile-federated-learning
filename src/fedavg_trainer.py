@@ -36,11 +36,12 @@ class FedAvgTrainer(object):
 
         # time counter starts from the first line
         self.time_counter = channel_data['Time'][0]
+        self.cum_time = self.time_counter
 
         # initialize the scheduler function
         if self.args.method == "sch_mpn" or self.args.method == "sch_mpn_empty":
             for _ in range(100):
-                self.scheduler = sch.Scheduler_MPN()
+                self.scheduler = sch.Scheduler_PN_delta()
                 client_indexes, _ = self.scheduler.sch_mpn_test(1, 2002)
                 if len(client_indexes) > 5:
                     break
@@ -103,11 +104,14 @@ class FedAvgTrainer(object):
             self.model_global.train()
             
             # get client_indexes from scheduler
+            reward = 0
+            loss_a = 0
+            loss_c = 0
             if self.args.method == "sch_mpn" or self.args.method == "sch_mpn_empty":
                 if self.args.method == "sch_mpn_empty" or round_idx == 0:
                     client_indexes, local_itr = self.scheduler.sch_mpn_empty(round_idx, self.time_counter)
                 else:
-                    client_indexes, local_itr, reward = self.scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst, local_loss_lst)
+                    client_indexes, local_itr, (reward, loss_a, loss_c) = self.scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst, local_loss_lst, )
             else:
                 if self.args.method == "sch_loss":
                     if round_idx == 0:
@@ -219,6 +223,7 @@ class FedAvgTrainer(object):
             # calculate delta
             delta = np.sum([sample_num * torch.norm(torch.cat([w[para].reshape((-1, )) - w_glob[para].reshape((-1, )) for para in self.model_global.state_dict().keys()])).item() for sample_num, w in w_locals]) \
                 / np.sum([sample_num for sample_num, _ in w_locals])
+            self.scheduler.calculate_itr(delta)
             # update rho
             
 
@@ -239,8 +244,10 @@ class FedAvgTrainer(object):
 
             wandb.log({
                 "reward": reward,
+                "loss_a": loss_a,
+                "loss_c": loss_c,
                 "round": round_idx,
-                "cum_time": trainer_csv_line[1],
+                "cum_time": self.cum_time,
                 "local_itr": local_itr,
                 "client_num": len(client_indexes)
             })
@@ -259,6 +266,7 @@ class FedAvgTrainer(object):
     def tx_time(self, client_indexes):
         if not client_indexes:
             self.time_counter += 1
+            self.cum_time += 1
             return 
         # read the channel condition for corresponding cars.
         channel_res = np.reshape(np.array(channel_data[channel_data['Time'] == self.time_counter * channel_data['Car'].isin(client_indexes)]["Distance to BS(4982,905)"]), (1, -1))
@@ -271,6 +279,7 @@ class FedAvgTrainer(object):
 
         # self.time_counter += tmp_t
         self.time_counter += math.ceil(TIME_COMPRESSION_RATIO*tmp_t)
+        self.cum_time += math.ceil(TIME_COMPRESSION_RATIO*tmp_t)
 
         logger.debug("time_counter after tx_time: {}".format(self.time_counter))
 
