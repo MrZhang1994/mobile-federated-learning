@@ -216,11 +216,19 @@ class FedAvgTrainer(object):
                 csv_writer.writerow([trainer_csv_line[1]]+FPF2_idx_lst.tolist())
                 file.flush()
 
-            # calculate delta
-            delta = np.sum([sample_num * torch.norm(torch.cat([w[para].reshape((-1, )) - w_glob[para].reshape((-1, )) for para in self.model_global.state_dict().keys()])).item() for sample_num, w in w_locals]) \
-                / np.sum([sample_num for sample_num, _ in w_locals])
-            # update rho
-            
+            if w_locals and loss_locals:
+                sample_nums = np.array([sample_num for sample_num, _ in w_locals])
+                local_w_diff_norms = np.array([torch.norm(torch.cat([w[para].reshape((-1, )) - w_glob[para].reshape((-1, )).item() for para in self.model_global.state_dict().keys()])).item() for _, w in w_locals])
+                local_loss_diffs = np.array([np.abs(loss_avg - loss) for loss in loss_list])
+                # calculate delta
+                delta = np.sum(sample_nums * local_w_diff_norms) / np.sum(sample_nums)
+                # update rho
+                rho_tmp = np.sum(sample_nums * local_loss_diffs / local_w_diff_norms) / np.sum(sample_nums)
+                if rho_tmp > rho:
+                    rho = rho_tmp
+                # update beta
+                beta_tmp = 
+                
 
             if weight_size < THRESHOLD_WEIGHT_SIZE:
                 # update local_w_diffs
