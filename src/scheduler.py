@@ -54,7 +54,7 @@ class Reward:
         self.F_r = np.matmul(selection,loss_locals.T)/(np.sum(selection))
         self.F_r = float(self.F_r)
 
-        Reward = ALPHA*(self.F_r_last-self.F_r)/(time_length*self.F_r)+BETA*float(np.matmul(FPF,(loss_locals.T))/np.sum(selection)-np.sum(FPF)/M)
+        Reward = ALPHA*(self.F_r_last-self.F_r)/(time_length*self.F_r)+BETA*float(np.matmul(FPF,(selection.T))/np.sum(selection)-np.sum(FPF)/M)
         self.F_r_last = self.F_r
         Reward = 100000*Reward
         return Reward
@@ -200,7 +200,8 @@ class Scheduler_PN_delta:
         # del available_car_last
         # ================================================================================================
         # train agent
-        self.agent.store_transition(self.state_last, self.action_last, [reward], state)
+        if reward <= 10000 and reward >= -10000:
+            self.agent.store_transition(self.state_last, self.action_last, [reward], state)
         loss = [0, 0]
         if self.agent.memory:
             loss_a, td_error = self.agent.learn()
