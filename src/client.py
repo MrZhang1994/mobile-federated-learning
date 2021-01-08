@@ -51,27 +51,33 @@ class Client:
 
         # record the start training time
         time_start = float(time.time()) 
-        # initial epoch loss
-        epoch_loss = []
-        for epoch in range(local_iteration): # epochs = epochs * local_itr
-            batch_loss = []
-            for batch_idx, (x, labels) in enumerate(self.local_training_data):
-                x, labels = x.to(self.device), labels.to(self.device)
-                net.zero_grad()
-                log_probs = net(x)
-                loss = self.criterion(log_probs, labels)
-                loss.backward()
-                optimizer.step()
-                batch_loss.append(loss.item())
-            epoch_loss.append(sum(batch_loss) / len(batch_loss))
+        for epoch in range(local_iteration):
+            x, labels = next(iter(self.local_training_data))
+            x, labels = x.to(self.device), labels.to(self.device)
+            net.zero_grad()
+            log_probs = net(x)
+            loss = self.criterion(log_probs, labels)
+            loss.backward()
+            optimizer.step()
+            epoch_loss = loss.item()
             logger.debug('Client Index = {}\tEpoch: {}\tLoss: {:.6f}'.format(
-                self.client_idx, epoch, sum(epoch_loss) / len(epoch_loss)))
+                self.client_idx, epoch, epoch_loss))
 
         # record the end time
         time_end = float(time.time()) 
 
+        # calculate grads.
+        net.eval()
+        log_probs = net(x)
+        loss = self.criterion(log_probs, labels)
+        loss.backward()
+        grads = []
+        for param in net.parameters():
+            grads.append(param.grad.view(-1))
+        grads = torch.cat(grads)
+
         # add a new return value "time_interval"
-        return net.cpu().state_dict(), sum(epoch_loss) / len(epoch_loss), (time_end - time_start) 
+        return net.cpu().state_dict(), epoch_loss, (time_end - time_start), grads.cpu()
 
 
     def local_test(self, model_global, b_use_test_dataset=False):

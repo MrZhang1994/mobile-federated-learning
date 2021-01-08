@@ -61,9 +61,6 @@ def add_args():
     parser.add_argument('--partition_alpha', type=float, default=0.5, metavar='PA',
                         help='partition alpha (default: 0.5)')
 
-    parser.add_argument('--batch_size', type=int, default=128, metavar='N',
-                        help='input batch size for training (default: 64)')
-
     parser.add_argument('--client_optimizer', type=str, default='adam',
                         help='SGD with momentum; adam')
 
@@ -95,10 +92,6 @@ def add_args():
     """         
     parser.add_argument("--method", type= str, default="sch_random",
                         help="declare the benchmark methods you use") 
-    # set if full batch
-    parser.add_argument("-f", "--full_batch", action= "store_true", dest= "full_batch", 
-                        help="set if use full batch") 
-
     args = parser.parse_args()
     return args
 
@@ -109,19 +102,12 @@ def load_data(args, dataset_name):
     return: dataset which contains [client_num, train_data_num, test_data_num, train_data_global, test_data_global,
                                     train_data_local_num_dict, train_data_local_dict, test_data_local_dict, class_num]
     """
-    # check if the full-batch training is enabled
-    args_batch_size = args.batch_size
-    if args.batch_size <= 0 or args.full_batch:
-        full_batch = True
-        args.batch_size = 128 # temporary batch size
-    else:
-        full_batch = False
-
+    batch_size = 128
     if dataset_name == "mnist":
         logger.debug("load_data. dataset_name = %s" % dataset_name)
         client_num, train_data_num, test_data_num, train_data_global, test_data_global, \
         train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
-        class_num = load_partition_data_mnist(args.batch_size)
+        class_num = load_partition_data_mnist(batch_size)
 
     elif dataset_name == "femnist":
         logger.debug("load_data. dataset_name = %s" % dataset_name)
@@ -133,7 +119,7 @@ def load_data(args, dataset_name):
         logger.debug("load_data. dataset_name = %s" % dataset_name)
         client_num, train_data_num, test_data_num, train_data_global, test_data_global, \
         train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
-        class_num = load_partition_data_shakespeare(args.batch_size)
+        class_num = load_partition_data_shakespeare(batch_size)
 
     elif dataset_name == "fed_shakespeare":
         logger.debug("load_data. dataset_name = %s" % dataset_name)
@@ -171,15 +157,13 @@ def load_data(args, dataset_name):
         client_num, train_data_num, test_data_num, train_data_global, test_data_global, \
         train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
         class_num = data_loader(args.dataset, args.data_dir, args.partition_method,
-                                args.partition_alpha, config.client_num_in_total, args.batch_size)
-
-    if full_batch:
-        logger.info("-------------batches combine------------")
-        train_data_global = combine_batches(train_data_global)
-        test_data_global = combine_batches(test_data_global)
-        train_data_local_dict = {cid: combine_batches(train_data_local_dict[cid]) for cid in train_data_local_dict.keys()}
-        test_data_local_dict = {cid: combine_batches(test_data_local_dict[cid]) for cid in test_data_local_dict.keys()}
-        args.batch_size = args_batch_size
+                                args.partition_alpha, config.client_num_in_total, batch_size)
+    
+    logger.info("-------------batches combine------------")
+    train_data_global = combine_batches(train_data_global)
+    test_data_global = combine_batches(test_data_global)
+    train_data_local_dict = {cid: combine_batches(train_data_local_dict[cid]) for cid in train_data_local_dict.keys()}
+    test_data_local_dict = {cid: combine_batches(test_data_local_dict[cid]) for cid in test_data_local_dict.keys()}
 
     dataset = [client_num, train_data_num, test_data_num, train_data_global, test_data_global,
                train_data_local_num_dict, train_data_local_dict, test_data_local_dict, class_num]

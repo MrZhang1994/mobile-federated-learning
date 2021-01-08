@@ -40,7 +40,7 @@ class FedAvgTrainer(object):
         # initialize the scheduler function
         if self.args.method == "sch_mpn" or self.args.method == "sch_mpn_empty":
             for _ in range(100):
-                self.scheduler = sch.Scheduler_MPN()
+                self.scheduler = sch.Scheduler_PN_delta()
                 client_indexes, _ = self.scheduler.sch_mpn_test(1, 2002)
                 if len(client_indexes) > 5:
                     break
@@ -103,11 +103,12 @@ class FedAvgTrainer(object):
             self.model_global.train()
             
             # get client_indexes from scheduler
+            reward, loss_a, loss_c = 0, 0, 0
             if self.args.method == "sch_mpn" or self.args.method == "sch_mpn_empty":
                 if self.args.method == "sch_mpn_empty" or round_idx == 0:
                     client_indexes, local_itr = self.scheduler.sch_mpn_empty(round_idx, self.time_counter)
                 else:
-                    client_indexes, local_itr, reward = self.scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst, local_loss_lst)
+                    client_indexes, local_itr, (reward, loss_a, loss_c) = self.scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst, local_loss_lst)
             else:
                 if self.args.method == "sch_loss":
                     if round_idx == 0:
@@ -133,7 +134,7 @@ class FedAvgTrainer(object):
             # store the last model's training parameters.
             last_w = copy.deepcopy(self.model_global.cpu().state_dict())
             # local Initialization
-            w_locals, loss_locals, time_interval_lst, loss_list = [], [], [], []
+            w_locals, loss_locals, time_interval_lst, loss_list, grads_locals = [], [], [], [], []
             """
             for scalability: following the original FedAvg algorithm, we uniformly sample a fraction of clients in each round.
             Instead of changing the 'Client' instances, our implementation keeps the 'Client' instances and then updates their local dataset 
@@ -150,7 +151,7 @@ class FedAvgTrainer(object):
                 # train on new dataset
                 # add a new parameter "local_itr" to the funciton "client.train()"
                 # add a new return value "time_interval" which is the time consumed for training model in client.
-                w, loss, time_interval = client.train(net=copy.deepcopy(self.model_global).to(self.device), local_iteration = local_itr)
+                w, loss, time_interval, grads = client.train(net=copy.deepcopy(self.model_global).to(self.device), local_iteration = local_itr)
                 
                 # record current time interval into time_interval_lst
                 time_interval_lst.append(time_interval)
@@ -158,6 +159,8 @@ class FedAvgTrainer(object):
                 w_locals.append((client.get_sample_number(), copy.deepcopy(w)))
                 # record current loss into loss_locals
                 loss_locals.append(loss)
+                # record current grads into grads_locals
+                grads_locals.append(grads.to(self.device))
                 # update the local_loss_lst
                 local_loss_lst[0, client_idx] = loss
                 # update local_w_diffs
@@ -202,12 +205,26 @@ class FedAvgTrainer(object):
                 csv_writer.writerow(trainer_csv_line)
                 file.flush()  
 
+            # log on wandb
+            wandb.log({
+                "reward": reward,
+                "loss_a": loss_a,
+                "loss_c": loss_c,
+                "round": round_idx,
+                "cum_time": trainer_csv_line[1],
+                "local_itr": local_itr,
+                "client_num": len(client_indexes)
+            })
+
             # update FPF index list
             if weight_size < THRESHOLD_WEIGHT_SIZE:
-                FPF2_idx_lst = (torch.norm(local_w_diffs * A_mat, dim = 1) / G_mat).cpu().numpy()
+                FPF2_idx_lst = torch.norm(local_w_diffs * A_mat, dim = 1) / G_mat
             else:
-                FPF2_idx_lst = (LRU_itr_lst / G_mat).cpu().numpy()
-            FPF2_idx_lst[np.bitwise_or(np.isnan(FPF2_idx_lst), np.isinf(FPF2_idx_lst))] = 0  
+                FPF2_idx_lst = LRU_itr_lst / G_mat
+            FPF2_idx_lst[np.bitwise_or(np.isnan(FPF2_idx_lst), np.isinf(FPF2_idx_lst))] = 0 
+            FPF2_idx_lst = torch.nn.functional.normalize(FPF2_idx_lst, p = 2, dim = 0)
+            assert torch.norm(FPF2_idx_lst).item() == 1 
+            
             # write FPF index list to csv
             with open(FPF_csv, mode = "a+", encoding='utf-8', newline='') as file:
                 csv_writer = csv.writer(file)
@@ -226,8 +243,8 @@ class FedAvgTrainer(object):
                 rho_tmp = np.sum(sample_nums * local_loss_diffs / local_w_diff_norms) / np.sum(sample_nums)
                 if rho_tmp > rho:
                     rho = rho_tmp
-                # update beta
-                beta_tmp = 
+                # # update beta
+                # beta_tmp = 
                 
 
             if weight_size < THRESHOLD_WEIGHT_SIZE:
@@ -244,14 +261,6 @@ class FedAvgTrainer(object):
                     LRU_itr_lst[list(client_indexes)] = 0
             # update G_mat
             G_mat = G_mat * (1 - 1 / G1) + local_itr_lst[round_idx, :] / G1
-
-            wandb.log({
-                "reward": reward,
-                "round": round_idx,
-                "cum_time": trainer_csv_line[1],
-                "local_itr": local_itr,
-                "client_num": len(client_indexes)
-            })
 
             # if current time_counter has exceed the channel table, I will simply stop early
             if self.time_counter >= time_cnt_max[counting_days]:
@@ -277,7 +286,6 @@ class FedAvgTrainer(object):
         while np.sum(RES_WEIGHT * channel_res * RES_RATIO / tmp_t) > 1:
             tmp_t += 1
 
-        # self.time_counter += tmp_t
         self.time_counter += math.ceil(TIME_COMPRESSION_RATIO*tmp_t)
 
         logger.debug("time_counter after tx_time: {}".format(self.time_counter))
