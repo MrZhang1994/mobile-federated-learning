@@ -83,7 +83,11 @@ THRESHOLD_WEIGHT_SIZE = 100000
 # set hyperparameters for calculate iteration num
 # ===============================
 # set xi
-xi = 0.999
+XI = 0.999
+# set epsilon
+EPSILON = 2
+# set KAI
+KAI = 3
 
 # ==========================
 # Parameters for rl
