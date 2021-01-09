@@ -1,5 +1,6 @@
 # newly added libraries, to record the time interval
 import time
+import copy
 import torch
 from torch import nn
 
@@ -41,7 +42,6 @@ class Client:
 
 
     def train(self, net, local_iteration): # add a new parameter "local_iteration".
-        net.train()
         # train and update
         if self.args.client_optimizer == "sgd":
             optimizer = torch.optim.SGD(net.parameters(), lr=self.args.lr)
@@ -49,35 +49,57 @@ class Client:
             optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=self.args.lr,
                                               weight_decay=self.args.wd, amsgrad=True)
 
-        # record the start training time
-        time_start = float(time.time()) 
+        # initialize values
+        time_start = float(time.time()) # record the start training time
+        rho, beta = None, None # initialize with null values
         for epoch in range(local_iteration):
+            # get data
             x, labels = next(iter(self.local_training_data))
             x, labels = x.to(self.device), labels.to(self.device)
+            
+            # get lasts
+            if epoch == 0:
+                net.eval()
+                last_w = torch.cat([param.view(-1) for param in net.parameters()]) # get last weights
+                last_loss = self.criterion(net(x), labels)
+                last_loss.backward()
+                last_loss = last_loss.item() # get last loss 
+                last_grads = torch.cat([param.grad.view(-1) for param in net.parameters()]) # calculate grads.
+            
+            # get currents
+            net.train()
             net.zero_grad()
             log_probs = net(x)
             loss = self.criterion(log_probs, labels)
             loss.backward()
-            optimizer.step()
-            epoch_loss = loss.item()
+            loss = loss.item() # get current loss
+            grads = torch.cat([param.grad.view(-1) for param in net.parameters()]) # get current grads
+            optimizer.step() # updates weights
+            w = torch.cat([param.view(-1) for param in net.parameters()]) # get current w
+            
+            # calculate rho and update rho
+            rho_tmp = abs(loss - last_loss) / torch.norm(w - last_w)
+            if not rho or rho_tmp > rho:
+                rho = rho_tmp
+            
+            # calculate beta and udpate beta
+            beta_tmp = torch.norm(grads - last_grads) / torch.norm(w - last_w)
+            if not beta or beta_tmp > beta:
+                beta = beta_tmp
+
+            # update last
+            last_loss = loss
+            last_w = w
+            last_grads = grads
+            
             logger.debug('Client Index = {}\tEpoch: {}\tLoss: {:.6f}'.format(
-                self.client_idx, epoch, epoch_loss))
+                self.client_idx, epoch, loss))
 
         # record the end time
         time_end = float(time.time()) 
 
-        # calculate grads.
-        net.eval()
-        log_probs = net(x)
-        loss = self.criterion(log_probs, labels)
-        loss.backward()
-        grads = []
-        for param in net.parameters():
-            grads.append(param.grad.view(-1))
-        grads = torch.cat(grads)
-
         # add a new return value "time_interval"
-        return net.cpu().state_dict(), epoch_loss, (time_end - time_start), grads.cpu()
+        return net.cpu().state_dict(), loss, (time_end - time_start), beta.item(), rho.item()
 
 
     def local_test(self, model_global, b_use_test_dataset=False):
@@ -93,18 +115,16 @@ class Client:
         else:
             test_data = self.local_training_data
         with torch.no_grad():
-            for batch_idx, (x, target) in enumerate(test_data):
-                x = x.to(self.device)
+            x, target = next(iter(test_data))
+            x, target = x.to(self.device), target.to(self.device)
+            pred = model_global(x)
+            loss = self.criterion(pred, target)
+    
+            _, predicted = torch.max(pred, -1)
+            correct = predicted.eq(target).sum()
 
-                target = target.to(self.device)
-                pred = model_global(x)
-                loss = self.criterion(pred, target)
-        
-                _, predicted = torch.max(pred, -1)
-                correct = predicted.eq(target).sum()
-
-                metrics['test_correct'] += correct.item()
-                metrics['test_loss'] += loss.item() * target.size(0)
-                metrics['test_total'] += target.size(0)
+            metrics['test_correct'] += correct.item()
+            metrics['test_loss'] += loss.item() * target.size(0)
+            metrics['test_total'] += target.size(0)
 
         return metrics

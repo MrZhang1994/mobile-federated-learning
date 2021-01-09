@@ -108,7 +108,7 @@ class FedAvgTrainer(object):
                 if self.args.method == "sch_mpn_empty" or round_idx == 0:
                     client_indexes, local_itr = self.scheduler.sch_mpn_empty(round_idx, self.time_counter)
                 else:
-                    client_indexes, local_itr, (reward, loss_a, loss_c) = self.scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst, local_loss_lst)
+                    client_indexes, local_itr, (reward, loss_a, loss_c) = self.scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst, local_loss_lst, )
             else:
                 if self.args.method == "sch_loss":
                     if round_idx == 0:
@@ -134,7 +134,7 @@ class FedAvgTrainer(object):
             # store the last model's training parameters.
             last_w = copy.deepcopy(self.model_global.cpu().state_dict())
             # local Initialization
-            w_locals, loss_locals, time_interval_lst, loss_list, grads_locals = [], [], [], [], []
+            w_locals, loss_locals, time_interval_lst, loss_list, beta_locals, rho_locals = [], [], [], [], [], []
             """
             for scalability: following the original FedAvg algorithm, we uniformly sample a fraction of clients in each round.
             Instead of changing the 'Client' instances, our implementation keeps the 'Client' instances and then updates their local dataset 
@@ -151,7 +151,7 @@ class FedAvgTrainer(object):
                 # train on new dataset
                 # add a new parameter "local_itr" to the funciton "client.train()"
                 # add a new return value "time_interval" which is the time consumed for training model in client.
-                w, loss, time_interval, grads = client.train(net=copy.deepcopy(self.model_global).to(self.device), local_iteration = local_itr)
+                w, loss, time_interval, local_beta, local_rho = client.train(net=copy.deepcopy(self.model_global).to(self.device), local_iteration = local_itr)
                 
                 # record current time interval into time_interval_lst
                 time_interval_lst.append(time_interval)
@@ -159,8 +159,10 @@ class FedAvgTrainer(object):
                 w_locals.append((client.get_sample_number(), copy.deepcopy(w)))
                 # record current loss into loss_locals
                 loss_locals.append(loss)
-                # record current grads into grads_locals
-                grads_locals.append(grads.to(self.device))
+                # record local beta into beta_locals
+                beta_locals.append(local_beta)
+                # record local beta into rho_locals
+                rho_locals.append(local_rho)
                 # update the local_loss_lst
                 local_loss_lst[0, client_idx] = loss
                 # update local_w_diffs
@@ -211,6 +213,9 @@ class FedAvgTrainer(object):
                 "loss_a": loss_a,
                 "loss_c": loss_c,
                 "round": round_idx,
+                "beta": beta,
+                "rho": rho,
+                "delta": delta,
                 "cum_time": trainer_csv_line[1],
                 "local_itr": local_itr,
                 "client_num": len(client_indexes)
@@ -221,9 +226,9 @@ class FedAvgTrainer(object):
                 FPF2_idx_lst = torch.norm(local_w_diffs * A_mat, dim = 1) / G_mat
             else:
                 FPF2_idx_lst = LRU_itr_lst / G_mat
-            FPF2_idx_lst[np.bitwise_or(np.isnan(FPF2_idx_lst), np.isinf(FPF2_idx_lst))] = 0 
-            FPF2_idx_lst = torch.nn.functional.normalize(FPF2_idx_lst, p = 2, dim = 0)
-            assert torch.norm(FPF2_idx_lst).item() == 1 
+            FPF2_idx_lst[torch.bitwise_or(torch.isnan(FPF2_idx_lst), torch.isinf(FPF2_idx_lst))] = 0 
+            # FPF2_idx_lst = FPF2_idx_lst / FPF2_idx_lst.max()
+            FPF2_idx_lst = FPF2_idx_lst.cpu().numpy()
             
             # write FPF index list to csv
             with open(FPF_csv, mode = "a+", encoding='utf-8', newline='') as file:
@@ -233,19 +238,22 @@ class FedAvgTrainer(object):
                 csv_writer.writerow([trainer_csv_line[1]]+FPF2_idx_lst.tolist())
                 file.flush()
 
+            # update beta & delta & rho
             if w_locals and loss_locals:
                 sample_nums = np.array([sample_num for sample_num, _ in w_locals])
-                local_w_diff_norms = np.array([torch.norm(torch.cat([w[para].reshape((-1, )) - w_glob[para].reshape((-1, )).item() for para in self.model_global.state_dict().keys()])).item() for _, w in w_locals])
-                local_loss_diffs = np.array([np.abs(loss_avg - loss) for loss in loss_list])
+                local_w_diff_norms = np.array([torch.norm(torch.cat([w[para].reshape((-1, )) - w_glob[para].reshape((-1, )) for para in self.model_global.state_dict().keys()])).item() for _, w in w_locals])
                 # calculate delta
-                delta = np.sum(sample_nums * local_w_diff_norms) / np.sum(sample_nums)
+                delta_tmp = np.sum(sample_nums * local_w_diff_norms) / np.sum(sample_nums) / self.args.lr
+                if delta_tmp > rho or round_idx == 0:
+                    delta = delta_tmp
                 # update rho
-                rho_tmp = np.sum(sample_nums * local_loss_diffs / local_w_diff_norms) / np.sum(sample_nums)
-                if rho_tmp > rho:
+                rho_tmp = np.sum(sample_nums * np.array(rho_locals)) / np.sum(sample_nums)
+                if rho_tmp > rho or round_idx == 0:
                     rho = rho_tmp
-                # # update beta
-                # beta_tmp = 
-                
+                # update beta
+                beta_tmp = np.sum(sample_nums * np.array(beta_locals)) / np.sum(sample_nums)
+                if beta_tmp > rho or round_idx == 0:
+                    beta = beta_tmp
 
             if weight_size < THRESHOLD_WEIGHT_SIZE:
                 # update local_w_diffs
