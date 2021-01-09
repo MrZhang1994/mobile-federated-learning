@@ -30,7 +30,7 @@ if [ $METHOD = "all" ]; then
     --comm_round $ROUND \
     --client_optimizer $OPT \
     --lr $LR \
-    --method "sch_mpn" \
+    --method "sch_pn_method_1" \
     $VERBOSE
 
     python3 ./main_fedavg.py \

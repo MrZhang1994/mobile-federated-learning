@@ -8,7 +8,7 @@ import pandas as pd
 import time
 import copy
 
-import utils.pg_mpn as pg_mpn
+import utils.pg_pn as pg_pn
 import config
 
 # get some global variables
@@ -18,19 +18,18 @@ EMBEDDING_DIMENSION = config.EMBEDDING_DIMENSION
 HIDDEN_DIMENSION = config.HIDDEN_DIMENSION
 LSTM_LAYERS_NUM = config.LSTM_LAYERS_NUM
 
+# get parameters about calculating itr
+XI = config.XI              # set xi
+EPSILON = config.EPSILON    # set epsilon
+KAI = config.KAI            # set KAI
+ETA = config.ETA
+
 # set channel_data
 channel_data = config.channel_data
-
 # set the logger
 logger = config.logger_sch
-
 # set the csv
 scheduler_csv = config.scheduler_csv
-
-# used for round robin
-queue = []
-# used for sch_loss
-prev_cars = []
 
 class Reward:
     def __init__(self):
@@ -81,10 +80,10 @@ class Environment:
         return channel_state, available_car
 
     
-class Scheduler_PN_delta:
+class Scheduler_PN_method_1:
     def __init__(self):
         self.rwd = Reward()
-        RL = pg_mpn.PG # if config.NAIVE_PG else ddpg_mpn.DDPG
+        RL = pg_pn.PG
         self.agent = RL(EMBEDDING_DIMENSION, HIDDEN_DIMENSION, LSTM_LAYERS_NUM)
         self.env = Environment()
 
@@ -99,8 +98,7 @@ class Scheduler_PN_delta:
         self.delta_min = 9999999999999
         self.itr = 2
 
-
-    def calculate_itr(self, delta):
+    def calculate_itr_method_1(self, delta):
         if delta>self.delta_max:
             self.delta_max = delta
         if delta<self.delta_min:
@@ -113,9 +111,7 @@ class Scheduler_PN_delta:
         
         return self.itr
 
-
-
-    def sch_mpn_empty(self, round_idx, time_counter):
+    def sch_pn_empty(self, round_idx, time_counter):
         channel_state, self.available_car = self.env.update(time_counter)
         state = np.zeros((1, len(self.available_car[0]), 3))
         for i in range(len(self.available_car[0])):
@@ -147,7 +143,7 @@ class Scheduler_PN_delta:
             file.flush()
         return client_indexes, local_itr        
 
-    def sch_mpn_test(self, round_idx, time_counter):
+    def sch_pn_test(self, round_idx, time_counter):
         channel_state, self.available_car = self.env.update(time_counter)
         state = np.zeros((1, len(self.available_car[0]), 3))
         for i in range(len(self.available_car[0])):
@@ -168,7 +164,7 @@ class Scheduler_PN_delta:
 
         return client_indexes, local_itr   
 
-    def sch_mpn(self, round_idx, time_counter, loss_locals, FPF_idx_lst, local_loss_lst):
+    def sch_pn(self, round_idx, time_counter, loss_locals, FPF_idx_lst, local_loss_lst):
         # ================================================================================================
         # calculate reward
         selection = np.zeros((1, len(self.available_car[0])))
@@ -235,10 +231,10 @@ class Scheduler_PN_delta:
             file.flush()
         return client_indexes, local_itr, (reward, *loss)
 
-class Scheduler_PN_three_elements:
+class Scheduler_PN_method_2:
     def __init__(self):
         self.rwd = Reward()
-        RL = pg_mpn.PG # if config.NAIVE_PG else ddpg_mpn.DDPG
+        RL = pg_pn.PG
         self.agent = RL(EMBEDDING_DIMENSION, HIDDEN_DIMENSION, LSTM_LAYERS_NUM)
         self.env = Environment()
 
@@ -249,13 +245,13 @@ class Scheduler_PN_three_elements:
         self.action_last = None
         self.available_car = None
 
-    def calculate_itr(self, rho, beta, delta):
-        kappa = 1
-        epsilon = 0.5
-        eta = 1
-        A3 = kappa*(1-epsilon)/(2*beta)
-        B3 = eta*beta+1
-        C3 = (rho*delta)/(beta*(epsilon**2))
+        self.itr = 2
+
+    def calculate_itr_method_2(self, rho, beta, delta):
+
+        A3 = KAI*(1-XI)/(2*beta)
+        B3 = ETA*beta+1
+        C3 = (rho*delta)/(beta*(EPSILON**2))
 
         n_i = 0
         f_last = 0
@@ -265,10 +261,11 @@ class Scheduler_PN_three_elements:
             n_i = n_i+1
             f = A3*n_i - B3*(C3**n_i-1)
 
-        return n_i-1
+        self.itr = n_i-1
+        return self.itr
 
 
-    def sch_mpn_empty(self, round_idx, time_counter):
+    def sch_pn_empty(self, round_idx, time_counter):
         channel_state, self.available_car = self.env.update(time_counter)
         state = np.zeros((1, len(self.available_car[0]), 3))
         for i in range(len(self.available_car[0])):
@@ -277,8 +274,7 @@ class Scheduler_PN_three_elements:
             state[0, i, 2] = 0
 
         pointer, hidden_states = self.agent.choose_action_withAmender(state)
-
-        itr_num = 1
+        itr_num = self.itr
 
         self.action_last = [pointer, hidden_states]
         self.state_last = state
@@ -300,7 +296,7 @@ class Scheduler_PN_three_elements:
             file.flush()
         return client_indexes, local_itr        
 
-    def sch_mpn_test(self, round_idx, time_counter):
+    def sch_pn_test(self, round_idx, time_counter):
         channel_state, self.available_car = self.env.update(time_counter)
         state = np.zeros((1, len(self.available_car[0]), 3))
         for i in range(len(self.available_car[0])):
@@ -308,7 +304,7 @@ class Scheduler_PN_three_elements:
             state[0, i, 1] = 0
             state[0, i, 2] = 0
         pointer, hidden_states = self.agent.choose_action(state)
-        itr_num = 1
+        itr_num = self.itr
 
         self.action_last = [pointer, hidden_states]
         self.state_last = state
@@ -321,7 +317,7 @@ class Scheduler_PN_three_elements:
 
         return client_indexes, local_itr   
 
-    def sch_mpn(self, round_idx, time_counter, loss_locals, FPF_idx_lst, local_loss_lst):
+    def sch_pn(self, round_idx, time_counter, loss_locals, FPF_idx_lst, local_loss_lst):
         # ================================================================================================
         # calculate reward
         selection = np.zeros((1, len(self.available_car[0])))
@@ -363,7 +359,7 @@ class Scheduler_PN_three_elements:
             pointer, hidden_states = self.agent.choose_action_withAmender(state)
         else:
             pointer, hidden_states = self.agent.choose_action(state)
-        itr_num = 1
+        itr_num = self.itr
 
         client_indexes = []
         if len(pointer) != 0:

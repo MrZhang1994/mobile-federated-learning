@@ -38,12 +38,18 @@ class FedAvgTrainer(object):
         self.time_counter = channel_data['Time'][0]
 
         # initialize the scheduler function
-        if self.args.method == "sch_mpn" or self.args.method == "sch_mpn_empty":
+        if self.args.method == "sch_pn_method_1" or self.args.method == "sch_pn_method_1_empty":
             for _ in range(100):
-                self.scheduler = sch.Scheduler_PN_delta()
-                client_indexes, _ = self.scheduler.sch_mpn_test(1, 2002)
+                self.scheduler = sch.Scheduler_PN_method_1()
+                client_indexes, _ = self.scheduler.sch_pn_test(1, 2002)
                 if len(client_indexes) > 5:
                     break
+        elif self.args.method == "sch_pn_method_2" or self.args.method == "sch_pn_method_2_empty":
+            for _ in range(100):
+                self.scheduler = sch.Scheduler_PN_method_2()
+                client_indexes, _ = self.scheduler.sch_pn_test(1, 2002)
+                if len(client_indexes) > 5:
+                    break            
         elif self.args.method == "sch_random":
             self.scheduler = sch.sch_random
         elif self.args.method == "sch_channel":
@@ -104,11 +110,13 @@ class FedAvgTrainer(object):
             
             # get client_indexes from scheduler
             reward, loss_a, loss_c = 0, 0, 0
-            if self.args.method == "sch_mpn" or self.args.method == "sch_mpn_empty":
-                if self.args.method == "sch_mpn_empty" or round_idx == 0:
-                    client_indexes, local_itr = self.scheduler.sch_mpn_empty(round_idx, self.time_counter)
+            if self.args.method == "sch_pn_method_1" or self.args.method == "sch_pn_method_2" or \
+            self.args.method == "sch_pn_method_1_empty" or self.args.method == "sch_pn_method_2_empty":
+                if self.args.method == "sch_pn_method_1_empty" or self.args.method == "sch_pn_method_2_empty" or round_idx == 0:
+                    client_indexes, local_itr = self.scheduler.sch_pn_empty(round_idx, self.time_counter)
                 else:
-                    client_indexes, local_itr, (reward, loss_a, loss_c) = self.scheduler.sch_mpn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst, local_loss_lst, )
+                    client_indexes, local_itr, (reward, loss_a, loss_c) = self.scheduler.sch_pn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst, local_loss_lst, )
+
             else:
                 if self.args.method == "sch_loss":
                     if round_idx == 0:
@@ -255,6 +263,11 @@ class FedAvgTrainer(object):
                 beta_tmp = np.sum(sample_nums * np.array(beta_locals)) / np.sum(sample_nums)
                 if beta_tmp > rho or round_idx == 0:
                     beta = beta_tmp
+
+            if self.args.method == "sch_pn_method_1" or self.args.method == "sch_pn_method_1_empty":
+                self.scheduler.calculate_itr_method_1(delta)
+            elif self.args.method == "sch_pn_method_2" or self.args.method == "sch_pn_method_2_empty":
+                self.scheduler.calculate_itr_method_2(rho, beta, delta)
 
             if weight_size < THRESHOLD_WEIGHT_SIZE:
                 # update local_w_diffs

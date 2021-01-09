@@ -85,9 +85,11 @@ THRESHOLD_WEIGHT_SIZE = 100000
 # set xi
 XI = 0.999
 # set epsilon
-EPSILON = 2
+EPSILON = 2 
 # set KAI
 KAI = 3
+# initialize ETA
+ETA = None
 
 # ==========================
 # Parameters for rl
