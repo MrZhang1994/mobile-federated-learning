@@ -226,10 +226,11 @@ class FedAvgTrainer(object):
                 FPF2_idx_lst = torch.norm(local_w_diffs * A_mat, dim = 1) / G_mat
             else:
                 FPF2_idx_lst = LRU_itr_lst / G_mat
-            FPF2_idx_lst[torch.bitwise_or(torch.isnan(FPF2_idx_lst), torch.isinf(FPF2_idx_lst))] = 0 
-            # FPF2_idx_lst = FPF2_idx_lst / FPF2_idx_lst.max()
             FPF2_idx_lst = FPF2_idx_lst.cpu().numpy()
-            
+            FPF2_idx_lst[np.bitwise_or(np.isnan(FPF2_idx_lst), np.isinf(FPF2_idx_lst))] = 0 
+            FPF2_idx_lst = FPF2_idx_lst / max(FPF2_idx_lst)
+            FPF2_idx_lst[np.bitwise_or(np.isnan(FPF2_idx_lst), np.isinf(FPF2_idx_lst))] = 0 
+
             # write FPF index list to csv
             with open(FPF_csv, mode = "a+", encoding='utf-8', newline='') as file:
                 csv_writer = csv.writer(file)
