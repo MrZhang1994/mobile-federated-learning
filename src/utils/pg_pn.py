@@ -12,11 +12,9 @@ import utils.PointerNet as PointerNet
 import config
 
 
-# Parameters for ddpg
+# Parameters for pg
 MEMORY_CAPACITY = config.MEMORY_CAPACITY    # size of experience pool
 LR_A = config.LR_A                          # learning rate for actor
-GAMMA = config.GAMMA                        # reward discount
-TAU = config.TAU                            # soft replacement
 use_gpu = config.use_gpu                    # use GPU or not
 device = torch.device("cuda:" + str(0) if torch.cuda.is_available() else "cpu")
 # print(device)
@@ -77,42 +75,7 @@ class ANetProb(nn.Module):
 
         return pointer[0], ((log_prob, entropy), pointer)
 
-# ===========================
-        # outputs = []
-        # pointers = []
-        # hidden_states = []
 
-
-        # for j in range(self.max_itr_num):
-        #     if action is None:
-        #         output, pointer, hidden_state = self.pointer_network_layer1[j](state_list[j], False)
-        #     else:
-        #         output, pointer, hidden_state = self.pointer_network_layer1[j](state_list[j], False, action[0][j])
-
-        #     outputs.append(output[:,0,:])
-        #     pointers.append(pointer)
-        #     hidden_states.append(hidden_state)
-
-        # outputs = torch.cat(outputs, 0)
-        # outputs = torch.unsqueeze(outputs, dim = 0)
-
-        # output_60 = torch.zeros((1,self.max_itr_num,MAXIMUM_CLIENT_NUM_PLUS_ONE))
-        # if use_gpu:
-        #     output_60 = output_60.to(device) 
-        # output_60[:,:,0:outputs.size(2)] = outputs
-
-        # if action is None:
-        #     output2, pointer2, hidden_state2 = self.pointer_network_layer2(output_60, False, None, True)
-        # else:
-        #     output2, pointer2, hidden_state2 = self.pointer_network_layer2(output_60, False, action[1], True)
-
-        # itr_num = pointer2[0, 0]  
-        # pointer = pointers[itr_num][0]
-        # log_prob = self.pointer_network_layer2.log_prob + self.pointer_network_layer1[j].log_prob
-        # entropy = self.pointer_network_layer2.entropy + self.pointer_network_layer1[j].entropy
-
-        # return itr_num, pointer, ((log_prob, entropy), (pointers, pointer2))
-# ===========================
 
 class PG(object):
     def __init__(self, embedding_dim, hidden_dim, lstm_layers):

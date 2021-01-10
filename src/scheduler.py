@@ -30,6 +30,7 @@ channel_data = config.channel_data
 logger = config.logger_sch
 # set the csv
 scheduler_csv = config.scheduler_csv
+reward_csv = config.reward_csv
 
 class Reward:
     def __init__(self):
@@ -45,16 +46,24 @@ class Reward:
         """
         if np.sum(selection) == 0:
             return 0
-        ALPHA = 1
-        BETA = 1
+        ALPHA = 100000
+        BETA = 100000
         M = len(loss_locals[0])
 
         self.F_r = np.matmul(selection,loss_locals.T)/(np.sum(selection))
         self.F_r = float(self.F_r)
 
-        Reward = ALPHA*(self.F_r_last-self.F_r)/(time_length*self.F_r)+BETA*float(np.matmul(FPF,(selection.T))/np.sum(selection)-np.sum(FPF)/M)
+        efficiency_inc = (self.F_r_last-self.F_r)/(time_length*self.F_r)
+        fairness_inc = float(np.matmul(FPF,(selection.T))/np.sum(selection)-np.sum(FPF)/M)
+        Reward = ALPHA*efficiency_inc+BETA*fairness_inc
         self.F_r_last = self.F_r
-        Reward = 100000*Reward
+
+        # write to the scheduler csv
+        with open(reward_csv, mode = "a+", encoding='utf-8', newline='') as file:
+            csv_writer = csv.writer(file)
+            csv_writer.writerow([Reward, ALPHA*efficiency_inc, BETA*fairness_inc, efficiency_inc, fairness_inc])
+            file.flush()
+
         return Reward
         
 class Environment:

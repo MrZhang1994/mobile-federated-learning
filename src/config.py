@@ -35,10 +35,13 @@ RESULT_PATH = os.path.join("result", DAY, MOMENT)
 if os.path.exists(RESULT_PATH) == False:
     os.makedirs(RESULT_PATH)
 
+# ===============================
 # initialize some csv_writers name
+# ===============================
 trainer_csv = os.path.join(RESULT_PATH, "-".join(["trainer", DAY, MOMENT]) + '.csv') # file name
 scheduler_csv = os.path.join(RESULT_PATH, "-".join(["scheduler", DAY, MOMENT]) + '.csv')# file name
 FPF_csv = os.path.join(RESULT_PATH, "-".join(["FPF", DAY, MOMENT]) + '.csv') # file name
+reward_csv = os.path.join(RESULT_PATH, "-".join(["reward", DAY, MOMENT]) + '.csv') # file name
 
 # ===============================
 # set the logger
@@ -97,10 +100,10 @@ ETA = None
 PROJECT = 'fedavg_rl4'
 RL_PRESET = os.environ.get('RL_PRESET', 'pg_noamender')
 assert RL_PRESET in ['ddpg', 'pg', 'random', 'ddpg_baseline', 'pg_amender', 'pg_noamender']
-LR_A = 0.01         # learning rate for actor
-LR_C = 0.001        # learning rate for critic
-GAMMA = 0.9         # reward discount
-TAU = 0.01          # soft replacement
+LR_A = 0.001         # learning rate for actor
+# LR_C = 0.001        # learning rate for critic
+# GAMMA = 0.9         # reward discount
+# TAU = 0.01          # soft replacement
 use_gpu = False      # use GPU or not
 AMEND_RATE = 1
 REG_FACTOR = 0.001
