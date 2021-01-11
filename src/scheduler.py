@@ -1,12 +1,8 @@
 # import libraries
-import re
-import socket
-import argparse
 import csv
 import numpy as np
-import pandas as pd
-import time
 import copy
+import math
 
 import utils.pg_pn as pg_pn
 import config
@@ -46,8 +42,8 @@ class Reward:
         """
         if np.sum(selection) == 0:
             return 0
-        ALPHA = 100000
-        BETA = 100000
+        ALPHA = 10000
+        BETA = 100
         M = len(loss_locals[0])
 
         self.F_r = np.matmul(selection,loss_locals.T)/(np.sum(selection))
@@ -55,6 +51,7 @@ class Reward:
 
         efficiency_inc = (self.F_r_last-self.F_r)/(time_length*self.F_r)
         fairness_inc = float(np.matmul(FPF,(selection.T))/np.sum(selection)-np.sum(FPF)/M)
+        # fairness_inc = math.log(float(np.matmul(FPF,(selection.T))/np.sum(selection)-np.sum(FPF)/M)+1) # use ln(x+1) to process fairness
         Reward = ALPHA*efficiency_inc+BETA*fairness_inc
         self.F_r_last = self.F_r
 
