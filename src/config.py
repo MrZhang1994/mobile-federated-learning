@@ -97,6 +97,7 @@ ETA = None
 # ==========================
 # Parameters for rl
 # ==========================
+device_No = None
 PROJECT = 'fedavg_rl4'
 RL_PRESET = os.environ.get('RL_PRESET', 'pg_noamender')
 assert RL_PRESET in ['ddpg', 'pg', 'random', 'ddpg_baseline', 'pg_amender', 'pg_noamender']

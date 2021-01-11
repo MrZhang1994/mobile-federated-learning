@@ -16,7 +16,7 @@ import config
 MEMORY_CAPACITY = config.MEMORY_CAPACITY    # size of experience pool
 LR_A = config.LR_A                          # learning rate for actor
 use_gpu = config.use_gpu                    # use GPU or not
-device = torch.device("cuda:" + str(0) if torch.cuda.is_available() else "cpu")
+
 # print(device)
 # Parameters for multi-layer PointerNetwork
 FEATURE_DIMENSION = config.FEATURE_DIMENSION
@@ -80,6 +80,8 @@ class ANetProb(nn.Module):
 class PG(object):
     def __init__(self, embedding_dim, hidden_dim, lstm_layers):
 
+        self.device = torch.device("cuda:" + str(config.device_No) if torch.cuda.is_available() else "cpu")
+
         self.embedding_dim = embedding_dim
         self.hidden_dim = hidden_dim
         self.lstm_layers = lstm_layers
@@ -89,8 +91,8 @@ class PG(object):
         self.loss_td = nn.MSELoss()
 
         if use_gpu:
-            self.Actor = self.Actor.to(device)
-            self.loss_td = self.loss_td.to(device)
+            self.Actor = self.Actor.to(self.device)
+            self.loss_td = self.loss_td.to(self.device)
 
         self.pointer = 0
         self.learn_time = 0
@@ -104,7 +106,7 @@ class PG(object):
         state_tensor = torch.FloatTensor(state)
 
         if use_gpu:
-            state_tensor = state_tensor.to(device)
+            state_tensor = state_tensor.to(self.device)
 
         with torch.no_grad():
             pointer, hidden_states = self.Actor(state_tensor)
@@ -136,11 +138,11 @@ class PG(object):
             bs_ = torch.FloatTensor(bt[3].astype(np.float32))
 
             if use_gpu:
-                bs = bs.to(device)
-                baction = baction.to(device)
-                blog_prob = blog_prob.to(device)
-                br = br.to(device) 
-                bs_ = bs_.to(device) 
+                bs = bs.to(self.device)
+                baction = baction.to(self.device)
+                blog_prob = blog_prob.to(self.device)
+                br = br.to(self.device) 
+                bs_ = bs_.to(self.device) 
 
             pointer, ((log_prob, entropy), _) = self.Actor(bs, baction)
             data_term = -(br * torch.exp(log_prob - blog_prob)).detach() * log_prob

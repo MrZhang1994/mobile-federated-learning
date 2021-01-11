@@ -227,6 +227,7 @@ def main():
     # get all the program arguments.
     args = add_args()
     config.ETA = args.lr
+    config.device_No = args.gpu
     # Set the random seed. The np.random seed determines the dataset partition.
     # The torch_manual_seed determines the initial weight.
     # We fix these two, so that we can reproduce the result.
