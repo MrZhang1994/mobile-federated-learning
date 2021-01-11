@@ -296,6 +296,7 @@ def main():
     wandb.save(config.scheduler_csv)
     subprocess.run(['gzip', config.FPF_csv])
     wandb.save(config.FPF_csv + '.gz')
+    wandb.save(config.reward_csv)
 
 if __name__ == "__main__":
     main()
