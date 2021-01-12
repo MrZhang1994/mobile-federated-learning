@@ -282,8 +282,8 @@ def main():
 
     # initialize the wandb.
     wandb.init(
-        project="fedavg",
-        name="FedAVG-" + str(args.method)[4:] + "-r" + str(args.comm_round) + "-lr" + str(args.lr),
+        project=config.PROJECT,
+        name=config.RL_PRESET,
         config=global_hyp
     )
 
