@@ -98,9 +98,9 @@ ETA = None
 # Parameters for rl
 # ==========================
 device_No = None
-PROJECT = 'fedavg_rl4'
+PROJECT = 'fedavg_rl5'
 RL_PRESET = os.environ.get('RL_PRESET', 'pg_noamender')
-assert RL_PRESET in ['ac', 'pg', 'random', 'ac_baseline', 'pg_amender', 'pg_noamender']
+assert RL_PRESET in ['ac', 'pg', 'random', 'pg_amender', 'ac_noamender', 'pg_amender', 'pg_noamender']
 LR_A = 0.001         # learning rate for actor
 LR_C = 0.001        # learning rate for critic
 GAMMA = 0.9         # reward discount
