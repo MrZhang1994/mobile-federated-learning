@@ -78,7 +78,7 @@ RESTART_DAYS = 3
 # set the speed of the time_counter's increasing.
 TIME_COMPRESSION_RATIO = 0.1
 # set if evaluate on train dataset
-EVAL_ON_TRAIN = True
+EVAL_ON_TRAIN = False
 # set the threshold value for weight size
 THRESHOLD_WEIGHT_SIZE = 100000
 
