@@ -118,7 +118,7 @@ class Scheduler_PN_method_1:
         if self.delta_max == self.delta_min:
             self.itr = np.random.randint(1,MAXIMUM_ITERATION_NUM+1)
         else:
-            self.itr = min(MAXIMUM_ITERATION_NUM, int(MAXIMUM_ITERATION_NUM*(delta-self.delta_min)/(self.delta_max-self.delta_min))+1)
+            self.itr = min(MAXIMUM_ITERATION_NUM, int(MAXIMUM_ITERATION_NUM*(self.delta_max-delta)/(self.delta_max-self.delta_min))+1)
         
         return self.itr
 
