@@ -183,7 +183,7 @@ class PG(object):
             if USE_AC:
                 with torch.no_grad():
                     q_ = self.Critic(bs_)
-                    q_target += GAMMA * q_
+                    q_target = br + GAMMA * q_
                 loss_c.append(self.loss_td(self.Critic(bs), q_target))
             data_term = -(q_target * torch.exp(log_prob - blog_prob)).detach() * log_prob
             reg_term = - config.REG_FACTOR * entropy
