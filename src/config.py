@@ -100,16 +100,16 @@ ETA = None
 device_No = None
 PROJECT = 'fedavg_rl4'
 RL_PRESET = os.environ.get('RL_PRESET', 'pg_noamender')
-assert RL_PRESET in ['ddpg', 'pg', 'random', 'ddpg_baseline', 'pg_amender', 'pg_noamender']
+assert RL_PRESET in ['ac', 'pg', 'random', 'ac_baseline', 'pg_amender', 'pg_noamender']
 LR_A = 0.001         # learning rate for actor
-# LR_C = 0.001        # learning rate for critic
-# GAMMA = 0.9         # reward discount
+LR_C = 0.001        # learning rate for critic
+GAMMA = 0.9         # reward discount
 # TAU = 0.01          # soft replacement
 use_gpu = False      # use GPU or not
 AMEND_RATE = 1
 REG_FACTOR = 0.001
-NAIVE_PG = 'ddpg' not in RL_PRESET
-MEMORY_CAPACITY = 4 if NAIVE_PG else 50 # size of experience pool
+USE_AC = 'ac' in RL_PRESET
+MEMORY_CAPACITY = 4               # size of experience pool
 AMEND_ITER = 100 if 'amender' not in RL_PRESET else 1e12
 if 'noamender' in RL_PRESET:
     AMEND_ITER = 0
