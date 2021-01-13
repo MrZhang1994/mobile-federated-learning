@@ -281,16 +281,14 @@ class FedAvgTrainer(object):
                 sample_nums = np.array([sample_num for sample_num, _ in w_locals])
                 local_w_diff_norms = np.array([torch.norm(torch.cat([w[para].reshape((-1, )) - w_glob[para].reshape((-1, )) for para in self.model_global.state_dict().keys()])).item() for _, w in w_locals])
                 # calculate delta
-                delta_tmp = np.sum(sample_nums * local_w_diff_norms) / np.sum(sample_nums) / self.args.lr
-                if delta_tmp > rho or round_idx == 0:
-                    delta = delta_tmp
+                delta = np.sum(sample_nums * local_w_diff_norms) / np.sum(sample_nums) / self.args.lr
                 # update rho
                 rho_tmp = np.sum(sample_nums * np.array(rho_locals)) / np.sum(sample_nums)
                 if rho_tmp > rho or round_idx == 0:
                     rho = rho_tmp
                 # update beta
                 beta_tmp = np.sum(sample_nums * np.array(beta_locals)) / np.sum(sample_nums)
-                if beta_tmp > rho or round_idx == 0:
+                if beta_tmp > beta or round_idx == 0:
                     beta = beta_tmp
 
             if self.args.method == "sch_pn_method_1" or self.args.method == "sch_pn_method_1_empty":
