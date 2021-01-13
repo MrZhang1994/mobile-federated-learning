@@ -92,9 +92,9 @@ ETA = None
 
 ## for cnn + FederatedMNIST
 # set epsilon
-EPSILON = 6.5
+EPSILON = 0.1509021520614624
 # set KAI
-KAI = 0.00776449468
+KAI = 0.00083674144
 
 # ==========================
 # Parameters for rl
