@@ -69,6 +69,33 @@ class FedAvgTrainer(object):
 
 
     def train(self):
+        if self.args.method == "find_constant":
+            criterion = torch.nn.CrossEntropyLoss().to(self.device)
+            self.model_global.to(self.device)
+            if self.args.client_optimizer == "sgd":
+                optimizer = torch.optim.SGD(self.model_global.parameters(), lr=self.args.lr)
+            else:
+                optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.model_global.parameters()), lr=self.args.lr,
+                                                weight_decay=self.args.wd, amsgrad=True)      
+            last_loss = 0
+            for epoch in tqdm(range(1000)):
+                for client_idx in range(self.client_num):
+                    x, labels = next(iter(self.train_data_local_dict[client_idx]))
+                    x, labels = x.to(self.device), labels.to(self.device)
+                    self.model_global.train()
+                    self.model_global.zero_grad()
+                    log_probs = self.model_global(x)
+                    loss = criterion(log_probs, labels)
+                    loss.backward()
+                    loss = loss.item()
+                    wandb.log({"training_loss": loss})
+                    if abs(last_loss - loss) < 0.001:
+                        break
+                    last_loss = loss
+                    optimizer.step()
+            w = torch.cat([param.view(-1) for param in self.model_global.parameters()]) 
+            logger.info("weight norm: {}".format(torch.norm(w).item()))
+            return
         """
         Global initialized values
         """
@@ -278,8 +305,9 @@ class FedAvgTrainer(object):
                     logger.info("################reinitialize model") 
                     self.model_global = self.args.create_model(self.args, model_name=self.args.model, output_dim=self.class_num)
                 if counting_days >= DATE_LENGTH:
-                    logger.info("################training stops")
-                    break  
+                    logger.info("################training restarts")
+                    counting_days = 0
+                    self.time_counter = 0  
           
            
     def tx_time(self, client_indexes):
