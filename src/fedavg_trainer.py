@@ -76,6 +76,7 @@ class FedAvgTrainer(object):
 
     def train(self):
         if self.args.method == "find_constant":
+            logger.info("################global optimal weights calculation")
             criterion = torch.nn.CrossEntropyLoss().to(self.device)
             self.model_global.to(self.device)
             if self.args.client_optimizer == "sgd":
@@ -99,9 +100,10 @@ class FedAvgTrainer(object):
                         break
                     last_loss = loss
                     optimizer.step()
-            w = torch.cat([param.view(-1) for param in self.model_global.parameters()]) 
-            logger.info("weight norm: {}".format(torch.norm(w).item()))
-            return
+            w_optimal = torch.cat([param.view(-1) for param in self.model_global.parameters()]) 
+            loss_optimal = last_loss
+            # reinitialize
+            self.model_global = self.args.create_model(self.args, model_name=self.args.model, output_dim=self.class_num).to(self.device)
         """
         Global initialized values
         """
@@ -315,6 +317,12 @@ class FedAvgTrainer(object):
             if self.time_counter >= time_cnt_max[counting_days]:
                 counting_days += 1
                 if counting_days % RESTART_DAYS == 0:
+                    if self.args.method == "find_constant" and loss_locals:
+                        w = torch.cat([param.view(-1) for param in self.model_global.parameters()]) 
+                        w_diff_optimal = torch.norm(w.cpu() - w_optimal.cpu())
+                        logger.info("The norm of difference between w_optmal & w: {}".format(w_diff_optimal.item()))
+                        logger.info("The norm of difference between loss & loss_optimal: {}".format(loss_avg - loss_optimal))
+                        break
                     logger.info("################reinitialize model") 
                     self.model_global = self.args.create_model(self.args, model_name=self.args.model, output_dim=self.class_num)
                 if counting_days >= DATE_LENGTH:
