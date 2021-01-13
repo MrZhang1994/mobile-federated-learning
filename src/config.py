@@ -87,12 +87,14 @@ THRESHOLD_WEIGHT_SIZE = 100000
 # ===============================
 # set xi
 XI = 0.999
-# set epsilon
-EPSILON = 2 
-# set KAI
-KAI = 3
 # initialize ETA
 ETA = None
+
+## for cnn + FederatedMNIST
+# set epsilon
+EPSILON = 6.5
+# set KAI
+KAI = 0.00776449468
 
 # ==========================
 # Parameters for rl
