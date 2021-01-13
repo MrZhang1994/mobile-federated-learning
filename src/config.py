@@ -35,10 +35,13 @@ RESULT_PATH = os.path.join("result", DAY, MOMENT)
 if os.path.exists(RESULT_PATH) == False:
     os.makedirs(RESULT_PATH)
 
+# ===============================
 # initialize some csv_writers name
+# ===============================
 trainer_csv = os.path.join(RESULT_PATH, "-".join(["trainer", DAY, MOMENT]) + '.csv') # file name
 scheduler_csv = os.path.join(RESULT_PATH, "-".join(["scheduler", DAY, MOMENT]) + '.csv')# file name
 FPF_csv = os.path.join(RESULT_PATH, "-".join(["FPF", DAY, MOMENT]) + '.csv') # file name
+reward_csv = os.path.join(RESULT_PATH, "-".join(["reward", DAY, MOMENT]) + '.csv') # file name
 
 # ===============================
 # set the logger
@@ -85,25 +88,28 @@ THRESHOLD_WEIGHT_SIZE = 100000
 # set xi
 XI = 0.999
 # set epsilon
-EPSILON = 2
+EPSILON = 2 
 # set KAI
 KAI = 3
+# initialize ETA
+ETA = None
 
 # ==========================
 # Parameters for rl
 # ==========================
+device_No = None
 PROJECT = 'fedavg_rl4'
 RL_PRESET = os.environ.get('RL_PRESET', 'pg_noamender')
-assert RL_PRESET in ['ddpg', 'pg', 'random', 'ddpg_baseline', 'pg_amender', 'pg_noamender']
-LR_A = 0.01         # learning rate for actor
+assert RL_PRESET in ['ac', 'pg', 'random', 'ac_baseline', 'pg_amender', 'pg_noamender']
+LR_A = 0.001         # learning rate for actor
 LR_C = 0.001        # learning rate for critic
 GAMMA = 0.9         # reward discount
-TAU = 0.01          # soft replacement
+# TAU = 0.01          # soft replacement
 use_gpu = False      # use GPU or not
 AMEND_RATE = 1
 REG_FACTOR = 0.001
-NAIVE_PG = 'ddpg' not in RL_PRESET
-MEMORY_CAPACITY = 4 if NAIVE_PG else 50 # size of experience pool
+USE_AC = 'ac' in RL_PRESET
+MEMORY_CAPACITY = 4               # size of experience pool
 AMEND_ITER = 100 if 'amender' not in RL_PRESET else 1e12
 if 'noamender' in RL_PRESET:
     AMEND_ITER = 0
@@ -118,4 +124,4 @@ MAXIMUM_CLIENT_NUM_PLUS_ONE = 100
 EMBEDDING_DIMENSION = 16
 HIDDEN_DIMENSION = 16
 LSTM_LAYERS_NUM = 1
-MAXIMUM_ITERATION_NUM = 4
+MAXIMUM_ITERATION_NUM = 5

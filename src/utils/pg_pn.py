@@ -12,13 +12,14 @@ import utils.PointerNet as PointerNet
 import config
 
 
-# Parameters for ddpg
+# Parameters for pg
 MEMORY_CAPACITY = config.MEMORY_CAPACITY    # size of experience pool
 LR_A = config.LR_A                          # learning rate for actor
+LR_C = config.LR_C                          # learning rate for critic
+USE_AC = config.USE_AC                      # use actor critic instrad of pg
 GAMMA = config.GAMMA                        # reward discount
-TAU = config.TAU                            # soft replacement
 use_gpu = config.use_gpu                    # use GPU or not
-device = torch.device("cuda:" + str(0) if torch.cuda.is_available() else "cpu")
+
 # print(device)
 # Parameters for multi-layer PointerNetwork
 FEATURE_DIMENSION = config.FEATURE_DIMENSION
@@ -77,45 +78,38 @@ class ANetProb(nn.Module):
 
         return pointer[0], ((log_prob, entropy), pointer)
 
-# ===========================
-        # outputs = []
-        # pointers = []
-        # hidden_states = []
 
+class CNet(nn.Module):
+    def __init__(self, embedding_dimension, hidden_dimension, lstm_layers_num):
+        super(CNet, self).__init__()
 
-        # for j in range(self.max_itr_num):
-        #     if action is None:
-        #         output, pointer, hidden_state = self.pointer_network_layer1[j](state_list[j], False)
-        #     else:
-        #         output, pointer, hidden_state = self.pointer_network_layer1[j](state_list[j], False, action[0][j])
+        self.embedding_dim = embedding_dimension
+        self.hidden_dim = hidden_dimension
 
-        #     outputs.append(output[:,0,:])
-        #     pointers.append(pointer)
-        #     hidden_states.append(hidden_state)
+        self.pointer_network = PointerNet.PointerNet(input_dim = FEATURE_DIMENSION,
+                                                        embedding_dim = embedding_dimension,
+                                                        hidden_dim = hidden_dimension,
+                                                        lstm_layers = lstm_layers_num,
+                                                        dropout = 0,
+                                                        bidir=False)
 
-        # outputs = torch.cat(outputs, 0)
-        # outputs = torch.unsqueeze(outputs, dim = 0)
+        self.fcc = nn.Linear(self.hidden_dim, self.hidden_dim)
+        self.fcc.weight.data.normal_(0, 0.1)
+        self.out = nn.Linear(self.hidden_dim, 1)
+        self.out.weight.data.normal_(0, 0.1)
 
-        # output_60 = torch.zeros((1,self.max_itr_num,MAXIMUM_CLIENT_NUM_PLUS_ONE))
-        # if use_gpu:
-        #     output_60 = output_60.to(device) 
-        # output_60[:,:,0:outputs.size(2)] = outputs
+    def forward(self, state):
+        output, pointer, hidden_state = self.pointer_network(state, False)
+        x1 = self.fcc(hidden_state)
+        x = F.relu(x1)
+        value = self.out(x)
+        return value
 
-        # if action is None:
-        #     output2, pointer2, hidden_state2 = self.pointer_network_layer2(output_60, False, None, True)
-        # else:
-        #     output2, pointer2, hidden_state2 = self.pointer_network_layer2(output_60, False, action[1], True)
-
-        # itr_num = pointer2[0, 0]  
-        # pointer = pointers[itr_num][0]
-        # log_prob = self.pointer_network_layer2.log_prob + self.pointer_network_layer1[j].log_prob
-        # entropy = self.pointer_network_layer2.entropy + self.pointer_network_layer1[j].entropy
-
-        # return itr_num, pointer, ((log_prob, entropy), (pointers, pointer2))
-# ===========================
 
 class PG(object):
     def __init__(self, embedding_dim, hidden_dim, lstm_layers):
+
+        self.device = torch.device("cuda:" + str(config.device_No) if torch.cuda.is_available() else "cpu")
 
         self.embedding_dim = embedding_dim
         self.hidden_dim = hidden_dim
@@ -123,11 +117,15 @@ class PG(object):
 
         self.Actor = ANetProb(embedding_dim, hidden_dim, lstm_layers)
         self.atrain = torch.optim.Adam(self.Actor.parameters(), lr=LR_A, weight_decay=1e-4)
-        self.loss_td = nn.MSELoss()
+
+        if USE_AC:
+            self.Critic = CNet(embedding_dim, hidden_dim, lstm_layers)
+            self.ctrain = torch.optim.Adam(self.Critic.parameters(), lr=LR_C, weight_decay=1e-4)
+            self.loss_td = nn.MSELoss()
 
         if use_gpu:
-            self.Actor = self.Actor.to(device)
-            self.loss_td = self.loss_td.to(device)
+            self.Actor = self.Actor.to(self.device)
+            self.loss_td = self.loss_td.to(self.device)
 
         self.pointer = 0
         self.learn_time = 0
@@ -141,7 +139,7 @@ class PG(object):
         state_tensor = torch.FloatTensor(state)
 
         if use_gpu:
-            state_tensor = state_tensor.to(device)
+            state_tensor = state_tensor.to(self.device)
 
         with torch.no_grad():
             pointer, hidden_states = self.Actor(state_tensor)
@@ -166,6 +164,7 @@ class PG(object):
             return 0, 0
         self.learn_time += 1
         loss_a = []
+        loss_c = []
         for bt in self.memory:
             bs = torch.FloatTensor(bt[0].astype(np.float32))
             (blog_prob, _), baction = bt[1][1]
@@ -173,24 +172,40 @@ class PG(object):
             bs_ = torch.FloatTensor(bt[3].astype(np.float32))
 
             if use_gpu:
-                bs = bs.to(device)
-                baction = baction.to(device)
-                blog_prob = blog_prob.to(device)
-                br = br.to(device) 
-                bs_ = bs_.to(device) 
+                bs = bs.to(self.device)
+                baction = baction.to(self.device)
+                blog_prob = blog_prob.to(self.device)
+                br = br.to(self.device) 
+                bs_ = bs_.to(self.device) 
 
             pointer, ((log_prob, entropy), _) = self.Actor(bs, baction)
-            data_term = -(br * torch.exp(log_prob - blog_prob)).detach() * log_prob
+            q_target = br
+            if USE_AC:
+                with torch.no_grad():
+                    q_ = self.Critic(bs_)
+                    q_target += GAMMA * q_
+                loss_c.append(self.loss_td(self.Critic(bs), q_target))
+            data_term = -(q_target * torch.exp(log_prob - blog_prob)).detach() * log_prob
             reg_term = - config.REG_FACTOR * entropy
             loss_a.append(data_term + reg_term)
+
         loss_a = torch.stack(loss_a).mean()
         self.atrain.zero_grad()
         loss_a.backward()
         self.atrain.step()
 
+        if USE_AC:
+            loss_c = torch.stack(loss_c).mean()
+            self.ctrain.zero_grad()
+            loss_c.backward()
+            self.ctrain.step()
+        else:
+            loss_c = torch.zeros(1)
+
         if use_gpu:
             loss_a = loss_a.cpu()
-        return float(loss_a), 0
+            loss_c = loss_c.cpu()
+        return float(loss_a), float(loss_c)
 
     def store_transition(self, s, a, r, s_):
 
@@ -203,3 +218,5 @@ class PG(object):
 
     def save_model(self, path):
         torch.save(self.Actor.cpu().state_dict(), path+'/Actor.pkl')
+        if USE_AC:
+            torch.save(self.Critic.cpu().state_dict(), path+'/Critic.pkl')

@@ -6,6 +6,7 @@ import os
 import sys
 import time
 import random
+import subprocess
 
 # Maching learning tool chain.
 import numpy as np
@@ -17,7 +18,7 @@ import config
 from config import logger, logger_sch
 
 # add the root dir of FedML
-sys.path.insert(0, os.path.abspath("/zzp/FedML")) 
+sys.path.insert(0, os.path.abspath("../FedML-master")) 
 
 from fedml_api.data_preprocessing.cifar10.data_loader import load_partition_data_cifar10
 from fedml_api.data_preprocessing.cifar100.data_loader import load_partition_data_cifar100
@@ -86,9 +87,11 @@ def add_args():
                         help= "enable debug info output")
     # set the scheduler method
     """
-    currently only 1. sch_mpn 2. sch_mpn_empty 3. sch_random
-                    4. sch_channel 5. sch_rrobin 6. sch_loss are supported.
-    sch_mpn_empty means sch_mpn without training.
+    currently only  1. sch_pn_method_1          2. sch_pn_method_1_empty
+                    3. sch_pn_method_2          4. sch_pn_method_2_empty
+                    5. sch_channel              6. sch_rrobin
+                    7. sch_loss are supported.
+    sch_pn_method_1or2_empty means sch_pn_method_1or2 without training.
     """         
     parser.add_argument("--method", type= str, default="sch_random",
                         help="declare the benchmark methods you use") 
@@ -224,7 +227,8 @@ def create_model(args, model_name, output_dim):
 def main():
     # get all the program arguments.
     args = add_args()
-
+    config.ETA = args.lr
+    config.device_No = args.gpu
     # Set the random seed. The np.random seed determines the dataset partition.
     # The torch_manual_seed determines the initial weight.
     # We fix these two, so that we can reproduce the result.
@@ -290,7 +294,9 @@ def main():
 
     wandb.save(config.trainer_csv)
     wandb.save(config.scheduler_csv)
-    wandb.save(config.FPF_csv)
+    subprocess.run(['gzip', config.FPF_csv])
+    wandb.save(config.FPF_csv + '.gz')
+    wandb.save(config.reward_csv)
 
 if __name__ == "__main__":
     main()
