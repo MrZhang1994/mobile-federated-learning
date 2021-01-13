@@ -75,6 +75,35 @@ class FedAvgTrainer(object):
 
 
     def train(self):
+        if self.args.method == "find_constant":
+            logger.info("################global optimal weights calculation")
+            criterion = torch.nn.CrossEntropyLoss().to(self.device)
+            self.model_global.to(self.device)
+            if self.args.client_optimizer == "sgd":
+                optimizer = torch.optim.SGD(self.model_global.parameters(), lr=self.args.lr)
+            else:
+                optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.model_global.parameters()), lr=self.args.lr,
+                                                weight_decay=self.args.wd, amsgrad=True)      
+            last_loss = 0
+            for epoch in tqdm(range(1000)):
+                for client_idx in range(self.client_num):
+                    x, labels = next(iter(self.train_data_local_dict[client_idx]))
+                    x, labels = x.to(self.device), labels.to(self.device)
+                    self.model_global.train()
+                    self.model_global.zero_grad()
+                    log_probs = self.model_global(x)
+                    loss = criterion(log_probs, labels)
+                    loss.backward()
+                    loss = loss.item()
+                    wandb.log({"training_loss": loss})
+                    if abs(last_loss - loss) < 0.001:
+                        break
+                    last_loss = loss
+                    optimizer.step()
+            w_optimal = torch.cat([param.view(-1) for param in self.model_global.parameters()]) 
+            loss_optimal = last_loss
+            # reinitialize
+            self.model_global = self.args.create_model(self.args, model_name=self.args.model, output_dim=self.class_num).to(self.device)
         """
         Global initialized values
         """
@@ -252,16 +281,14 @@ class FedAvgTrainer(object):
                 sample_nums = np.array([sample_num for sample_num, _ in w_locals])
                 local_w_diff_norms = np.array([torch.norm(torch.cat([w[para].reshape((-1, )) - w_glob[para].reshape((-1, )) for para in self.model_global.state_dict().keys()])).item() for _, w in w_locals])
                 # calculate delta
-                delta_tmp = np.sum(sample_nums * local_w_diff_norms) / np.sum(sample_nums) / self.args.lr
-                if delta_tmp > rho or round_idx == 0:
-                    delta = delta_tmp
+                delta = np.sum(sample_nums * local_w_diff_norms) / np.sum(sample_nums) / self.args.lr
                 # update rho
                 rho_tmp = np.sum(sample_nums * np.array(rho_locals)) / np.sum(sample_nums)
                 if rho_tmp > rho or round_idx == 0:
                     rho = rho_tmp
                 # update beta
                 beta_tmp = np.sum(sample_nums * np.array(beta_locals)) / np.sum(sample_nums)
-                if beta_tmp > rho or round_idx == 0:
+                if beta_tmp > beta or round_idx == 0:
                     beta = beta_tmp
 
             if self.args.method == "sch_pn_method_1" or self.args.method == "sch_pn_method_1_empty":
@@ -288,11 +315,18 @@ class FedAvgTrainer(object):
             if self.time_counter >= time_cnt_max[counting_days]:
                 counting_days += 1
                 if counting_days % RESTART_DAYS == 0:
+                    if self.args.method == "find_constant" and loss_locals:
+                        w = torch.cat([param.view(-1) for param in self.model_global.parameters()]) 
+                        w_diff_optimal = torch.norm(w.cpu() - w_optimal.cpu())
+                        logger.info("The norm of difference between w_optmal & w: {}".format(w_diff_optimal.item()))
+                        logger.info("The norm of difference between loss & loss_optimal: {}".format(loss_avg - loss_optimal))
+                        break
                     logger.info("################reinitialize model") 
                     self.model_global = self.args.create_model(self.args, model_name=self.args.model, output_dim=self.class_num)
                 if counting_days >= DATE_LENGTH:
-                    logger.info("################training stops")
-                    break  
+                    logger.info("################training restarts")
+                    counting_days = 0
+                    self.time_counter = 0  
           
            
     def tx_time(self, client_indexes):

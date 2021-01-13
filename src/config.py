@@ -87,12 +87,14 @@ THRESHOLD_WEIGHT_SIZE = 100000
 # ===============================
 # set xi
 XI = 0.999
-# set epsilon
-EPSILON = 2 
-# set KAI
-KAI = 3
 # initialize ETA
 ETA = None
+
+## for cnn + FederatedMNIST
+# set epsilon
+EPSILON = 0.1509021520614624
+# set KAI
+KAI = 0.00083674144
 
 # ==========================
 # Parameters for rl
@@ -124,4 +126,4 @@ MAXIMUM_CLIENT_NUM_PLUS_ONE = 100
 EMBEDDING_DIMENSION = 16
 HIDDEN_DIMENSION = 16
 LSTM_LAYERS_NUM = 1
-MAXIMUM_ITERATION_NUM = 4
+MAXIMUM_ITERATION_NUM = 5
