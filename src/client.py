@@ -50,7 +50,7 @@ class Client:
                                               weight_decay=self.args.wd, amsgrad=True)
 
         # initialize values
-        time_start = float(time.time()) # record the start training time
+        time_start = float(time.time()) # record the start training tim
         rho, beta = None, None # initialize with null values
         for epoch in range(local_iteration):
             # get data
@@ -69,7 +69,12 @@ class Client:
             # get currents
             net.train()
             net.zero_grad()
+            logger.debug("===============================================")
+            logger.debug(x)
             log_probs = net(x)
+            logger.debug("+++++++++++++++++++++++++++++++++++++++++++++++")
+            logger.debug(log_probs)
+            logger.debug("-----------------------------------------------")
             loss = self.criterion(log_probs, labels)
             loss.backward()
             loss = loss.item() # get current loss

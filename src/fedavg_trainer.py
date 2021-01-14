@@ -112,7 +112,7 @@ class FedAvgTrainer(object):
         # counting days
         counting_days, reward = 0, 0
         # initialize values for calculating iteration num
-        delta, rho, beta = np.random.rand(1)[0], np.random.rand(1)[0], np.random.rand(1)[0]
+        delta, rho, beta, rho_flag, beta_flag = np.random.rand(1)[0], np.random.rand(1)[0], np.random.rand(1)[0], True, True
         # Initialize values for calculating FPF2 index
         local_itr_lst = torch.zeros(self.args.comm_round, int(client_num_in_total)).to(self.device)  # historical local iterations.
         G_mat = torch.zeros(int(client_num_in_total)).to(self.device) # initial the value of G with zero
@@ -282,18 +282,18 @@ class FedAvgTrainer(object):
                 local_w_diff_norms = np.array([torch.norm(torch.cat([w[para].reshape((-1, )) - w_glob[para].reshape((-1, )) for para in self.model_global.state_dict().keys()])).item() for _, w in w_locals])
                 # calculate delta
                 delta_tmp = np.sum(sample_nums * local_w_diff_norms) / np.sum(sample_nums) / self.args.lr
-                if (not np.isnan(delta_tmp) and not np.isinf(delta_tmp)) and delta_tmp < 10 ** 3 * delta:
+                if (not np.isnan(delta_tmp) and not np.isinf(delta_tmp)):
                     delta = delta_tmp
                 # update rho
                 rho_tmp = np.sum(sample_nums * np.array(rho_locals)) / np.sum(sample_nums)
-                if rho_tmp > rho or round_idx == 0:
-                    if (not np.isnan(rho_tmp) and not np.isinf(rho_tmp)) and rho_tmp < 10 ** 3 * rho:
-                        rho = rho_tmp
+                if rho_tmp > rho or rho_flag:
+                    if (not np.isnan(rho_tmp) and not np.isinf(rho_tmp)):
+                        rho, rho_flag = rho_tmp, False
                 # update beta
                 beta_tmp = np.sum(sample_nums * np.array(beta_locals)) / np.sum(sample_nums)
-                if beta_tmp > beta or round_idx == 0:
-                    if (not np.isnan(beta_tmp) and not np.isinf(beta_tmp)) and beta_tmp < 10 ** 3 * beta:
-                        beta = beta_tmp
+                if beta_tmp > beta or beta_flag:
+                    if (not np.isnan(beta_tmp) and not np.isinf(beta_tmp)):
+                        beta, beta_flag = beta_tmp, False
 
             if self.args.method == "sch_pn_method_1" or self.args.method == "sch_pn_method_1_empty":
                 self.scheduler.calculate_itr_method_1(delta)
@@ -327,6 +327,7 @@ class FedAvgTrainer(object):
                         break
                     logger.info("################reinitialize model") 
                     self.model_global = self.args.create_model(self.args, model_name=self.args.model, output_dim=self.class_num)
+                    delta, rho, beta, rho_flag, beta_flag = np.random.rand(1)[0], np.random.rand(1)[0], np.random.rand(1)[0], True, True
                 if counting_days >= DATE_LENGTH:
                     logger.info("################training restarts")
                     counting_days = 0
