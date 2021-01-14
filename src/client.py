@@ -76,7 +76,7 @@ class Client:
             grads = torch.cat([param.grad.view(-1) for param in net.parameters()]) # get current grads
             optimizer.step() # updates weights
             w = torch.cat([param.view(-1) for param in net.parameters()]) # get current w
-            logger.info("local client {} norm of current weights - last weights: {}".format(self.client_idx, torch.norm(w - last_w)))
+            logger.debug("local client {} norm of current weights - last weights: {}".format(self.client_idx, torch.norm(w - last_w)))
 
             # calculate rho and update rho
             rho_tmp = abs(loss - last_loss) / torch.norm(w - last_w)
