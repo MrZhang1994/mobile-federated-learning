@@ -64,6 +64,7 @@ class FedAvgTrainer(object):
         self.model_global = model
         self.model_global.train()
         self.C3 = 0
+        self.cycle_num = 0
  
  
     def setup_clients(self, train_data_local_num_dict, train_data_local_dict, test_data_local_dict):
@@ -254,7 +255,7 @@ class FedAvgTrainer(object):
                 "beta": beta,
                 "rho": rho,
                 "delta": delta,
-                "cum_time": trainer_csv_line[1],
+                "cum_time": trainer_csv_line[1]+self.cycle_num*59361,
                 "local_itr": local_itr,
                 "client_num": len(client_indexes),
                 "C3": self.C3
@@ -335,7 +336,8 @@ class FedAvgTrainer(object):
                 if counting_days >= DATE_LENGTH:
                     logger.info("################training restarts")
                     counting_days = 0
-                    self.time_counter = 0  
+                    self.time_counter = 0
+                    self.cycle_num = self.cycle_num+1
           
            
     def tx_time(self, client_indexes):
@@ -438,7 +440,7 @@ class FedAvgTrainer(object):
             "Test/AccVar": test_acc_var,
             "Test/LossVar": test_loss_var,
             "round": round_idx,
-            "cum_time": self.time_counter,
+            "cum_time": self.time_counter+self.cycle_num*59361,
         }
         logger.info(stats)
         wandb.log(stats)
