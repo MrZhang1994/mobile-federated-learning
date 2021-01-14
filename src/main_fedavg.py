@@ -18,7 +18,7 @@ import config
 from config import logger, logger_sch
 
 # add the root dir of FedML
-sys.path.insert(0, os.path.abspath("/zzp/FedML")) 
+sys.path.insert(0, os.path.abspath("../FedML-master")) 
 
 from fedml_api.data_preprocessing.cifar10.data_loader import load_partition_data_cifar10
 from fedml_api.data_preprocessing.cifar100.data_loader import load_partition_data_cifar100

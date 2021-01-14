@@ -63,6 +63,7 @@ class FedAvgTrainer(object):
 
         self.model_global = model
         self.model_global.train()
+        self.C3 = 0
  
  
     def setup_clients(self, train_data_local_num_dict, train_data_local_dict, test_data_local_dict):
@@ -255,7 +256,8 @@ class FedAvgTrainer(object):
                 "delta": delta,
                 "cum_time": trainer_csv_line[1],
                 "local_itr": local_itr,
-                "client_num": len(client_indexes)
+                "client_num": len(client_indexes),
+                "C3": self.C3
             })
 
             # update FPF index list
@@ -291,6 +293,8 @@ class FedAvgTrainer(object):
                 if beta_tmp > beta or round_idx == 0:
                     beta = beta_tmp
 
+            self.C3 = (rho*delta)/beta
+            
             if self.args.method == "sch_pn_method_1" or self.args.method == "sch_pn_method_1_empty":
                 self.scheduler.calculate_itr_method_1(delta)
             elif self.args.method == "sch_pn_method_2" or self.args.method == "sch_pn_method_2_empty":
