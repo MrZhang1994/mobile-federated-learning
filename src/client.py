@@ -4,7 +4,7 @@ import copy
 import torch
 from torch import nn
 
-from config import logger
+from config import logger, THRESHOLD_GRADS_RATIO
 
 class Client:
 
@@ -52,34 +52,42 @@ class Client:
         # initialize values
         time_start = float(time.time()) # record the start training tim
         rho, beta = None, None # initialize with null values
+        # get data
+        x, labels = next(iter(self.local_training_data))
+        x, labels = x.to(self.device), labels.to(self.device)    
+
+        logger.debug("***************************************************")
+        logger.debug("inputs.shape: {}".format(x.shape))
+        logger.debug("===================================================")
+        logger.debug("labels.shape: {}".format(labels.shape))
+        # get lasts
+        net.eval()
+        last_w = torch.cat([param.view(-1) for param in net.parameters()]) # get last weights
+        last_loss = self.criterion(net(x), labels)
+        last_loss.backward()
+        last_loss = last_loss.item() # get last loss 
+        last_grads = torch.cat([param.grad.view(-1) for param in net.parameters()]) # calculate grads.   
         for epoch in range(local_iteration):
-            # get data
-            x, labels = next(iter(self.local_training_data))
-            x, labels = x.to(self.device), labels.to(self.device)
-            
-            # get lasts
-            if epoch == 0:
-                net.eval()
-                last_w = torch.cat([param.view(-1) for param in net.parameters()]) # get last weights
-                last_loss = self.criterion(net(x), labels)
-                last_loss.backward()
-                last_loss = last_loss.item() # get last loss 
-                last_grads = torch.cat([param.grad.view(-1) for param in net.parameters()]) # calculate grads.
-            
-            # get currents
-            net.train()
-            net.zero_grad()
-            logger.debug("===============================================")
-            logger.debug(x)
-            log_probs = net(x)
-            logger.debug("+++++++++++++++++++++++++++++++++++++++++++++++")
-            logger.debug(log_probs)
-            logger.debug("-----------------------------------------------")
-            loss = self.criterion(log_probs, labels)
-            loss.backward()
-            loss = loss.item() # get current loss
-            grads = torch.cat([param.grad.view(-1) for param in net.parameters()]) # get current grads
-            optimizer.step() # updates weights
+            cnt = 0
+            while True:
+                # get currents
+                cnt += 1
+                net.train()
+                net.zero_grad()
+                log_probs = net(x)
+                loss = self.criterion(log_probs, labels)
+                loss.backward()
+                loss = loss.item() # get current loss
+                grads = torch.cat([param.grad.view(-1) for param in net.parameters()]) # get current grads
+                if (torch.isnan(grads).sum() > 0 or torch.sum(grads) > THRESHOLD_GRADS_RATIO * torch.sum(last_w)) and cnt <= 10:
+                    logger.warning("grads {} meets nan with epoch {}".format(torch.sum(grads), epoch))
+                else:
+                    if cnt > 10:
+                        for g in optimizer.param_groups:
+                            g["lr"] = self.args.lr / THRESHOLD_GRADS_RATIO / torch.sum(last_w)
+                    optimizer.step() # updates weights
+                    break
+
             w = torch.cat([param.view(-1) for param in net.parameters()]) # get current w
             logger.debug("local client {} norm of current weights - last weights: {}".format(self.client_idx, torch.norm(w - last_w)))
 
