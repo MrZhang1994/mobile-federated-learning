@@ -202,6 +202,7 @@ class FedAvgTrainer(object):
                             self.invalid_datasets[dataset_idx] = current_idx
                         break
                     current_idx = np.random.randint(self.class_num)
+                    logger.warning("changing dataset for {} to {}".format(client_idx, current_idx))
                 # record current time interval into time_interval_lst
                 time_interval_lst.append(time_interval)
                 # record current w into w_locals
