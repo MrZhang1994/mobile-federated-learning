@@ -79,12 +79,12 @@ class Client:
                 loss.backward()
                 loss = loss.item() # get current loss
                 grads = torch.cat([param.grad.view(-1) for param in net.parameters()]) # get current grads
-                if (torch.isnan(grads).sum() > 0 or torch.sum(grads) > THRESHOLD_GRADS_RATIO * torch.sum(last_w)) and cnt <= 10:
-                    logger.warning("grads {} meets nan with epoch {}".format(torch.sum(grads), epoch))
+                if (torch.isnan(grads).sum() > 0 or torch.norm(grads) > THRESHOLD_GRADS_RATIO * torch.norm(last_w)) and cnt <= 10:
+                    logger.warning("grads {} meets nan with epoch {}".format(torch.norm(grads), epoch))
                 else:
                     if cnt > 10:
                         for g in optimizer.param_groups:
-                            g["lr"] = self.args.lr / THRESHOLD_GRADS_RATIO / torch.sum(last_w)
+                            g["lr"] = self.args.lr / THRESHOLD_GRADS_RATIO / torch.norm(last_w)
                     optimizer.step() # updates weights
                     break
 
