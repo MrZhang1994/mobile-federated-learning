@@ -287,12 +287,12 @@ class FedAvgTrainer(object):
                 # update rho
                 rho_tmp = np.sum(sample_nums * np.array(rho_locals)) / np.sum(sample_nums)
                 if rho_tmp > rho or rho_flag:
-                    if (not np.isnan(rho_tmp) and not np.isinf(rho_tmp)):
+                    if (not np.isnan(rho_tmp) and not np.isinf(rho_tmp)) and rho_tmp < THRESHOLD_RHO:
                         rho, rho_flag = rho_tmp, False
                 # update beta
                 beta_tmp = np.sum(sample_nums * np.array(beta_locals)) / np.sum(sample_nums)
                 if beta_tmp > beta or beta_flag:
-                    if (not np.isnan(beta_tmp) and not np.isinf(beta_tmp)):
+                    if (not np.isnan(beta_tmp) and not np.isinf(beta_tmp)) and beta_tmp < THRESHOLD_BETA:
                         beta, beta_flag = beta_tmp, False
 
             if self.args.method == "sch_pn_method_1" or self.args.method == "sch_pn_method_1_empty":

@@ -81,6 +81,11 @@ TIME_COMPRESSION_RATIO = 0.1
 EVAL_ON_TRAIN = True
 # set the threshold value for weight size
 THRESHOLD_WEIGHT_SIZE = 100000
+# set the threshold value for rho and beta
+THRESHOLD_RHO = 1000
+THRESHOLD_BETA = 1000
+# set the threshold ratio for gradients
+THRESHOLD_GRADS_RATIO = 10
 
 # ===============================
 # set hyperparameters for calculate iteration num
