@@ -180,12 +180,14 @@ class PG(object):
 
             pointer, ((log_prob, entropy), _) = self.Actor(bs, baction)
             q_target = br
+            q_baseline = 0
             if USE_AC:
                 with torch.no_grad():
                     q_ = self.Critic(bs_)
                     q_target = br + GAMMA * q_
-                loss_c.append(self.loss_td(self.Critic(bs), q_target))
-            data_term = -(q_target * torch.exp(log_prob - blog_prob)).detach() * log_prob
+                q_baseline = self.Critic(bs)
+                loss_c.append(self.loss_td(q_baseline, q_target))
+            data_term = -((q_target - q_baseline) * torch.exp(log_prob - blog_prob)).detach() * log_prob
             reg_term = - config.REG_FACTOR * entropy
             loss_a.append(data_term + reg_term)
 

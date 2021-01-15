@@ -7,7 +7,7 @@ python3 ./main_fedavg.py \
     --data_dir ../FedML/data/FederatedEMNIST/datasets \
     --model cnn \
     --partition_method hetero  \
-    --comm_round 59361 \
+    --comm_round 5000 \
     --client_optimizer sgd \
     --lr 0.03 \
     --method sch_pn_method_1

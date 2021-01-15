@@ -100,9 +100,25 @@ KAI = 0.00083674144
 # Parameters for rl
 # ==========================
 device_No = None
-PROJECT = 'fedavg_rl5'
+PROJECT = 'fedavg_rl6'
 RL_PRESET = os.environ.get('RL_PRESET', 'pg_noamender')
-assert RL_PRESET in ['ac', 'pg', 'random', 'ac_amender', 'ac_noamender', 'pg_amender', 'pg_noamender'], RL_PRESET
+assert RL_PRESET in [
+    'ac',
+    'pg',
+    'random',
+    'ac_amender',
+    'ac_noamender',
+    'pg_amender',
+    'pg_noamender',
+    'ac_5',
+    'pg_5',
+    'random_5',
+    'ac_amender_5',
+    'ac_noamender_5',
+    'pg_amender_5',
+    'pg_noamender_5'
+], RL_PRESET
+
 LR_A = 0.001         # learning rate for actor
 LR_C = 0.001        # learning rate for critic
 GAMMA = 0.9         # reward discount

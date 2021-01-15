@@ -122,6 +122,10 @@ class Scheduler_PN_method_1:
         
         return self.itr
 
+    def calculate_itr_method_0(self, delta):
+        self.itr = 5
+        return self.itr
+
     def sch_pn_empty(self, round_idx, time_counter):
         channel_state, self.available_car = self.env.update(time_counter)
         state = np.zeros((1, len(self.available_car[0]), 3))

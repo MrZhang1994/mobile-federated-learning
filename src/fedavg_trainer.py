@@ -36,6 +36,7 @@ class FedAvgTrainer(object):
 
         # time counter starts from the first line
         self.time_counter = channel_data['Time'][0]
+        self.cum_time = 0
 
         # initialize the scheduler function
         if self.args.method == "sch_pn_method_1" or self.args.method == "sch_pn_method_1_empty":
@@ -217,7 +218,8 @@ class FedAvgTrainer(object):
 
             # update the time counter
             if time_interval_lst:
-                self.time_counter += math.ceil(TIME_COMPRESSION_RATIO*(sum(time_interval_lst) / len(time_interval_lst)))
+                dt = math.ceil(TIME_COMPRESSION_RATIO*(sum(time_interval_lst) / len(time_interval_lst)))
+                self.time_counter += dt
             logger.debug("time_counter after training: {}".format(self.time_counter))
             
             trainer_csv_line += [self.time_counter-trainer_csv_line[1], np.var(local_loss_lst), str(loss_list)]
@@ -253,7 +255,7 @@ class FedAvgTrainer(object):
                 "beta": beta,
                 "rho": rho,
                 "delta": delta,
-                "cum_time": trainer_csv_line[1],
+                "cum_time": self.cum_time + self.time_counter,
                 "local_itr": local_itr,
                 "client_num": len(client_indexes)
             })
@@ -292,7 +294,10 @@ class FedAvgTrainer(object):
                     beta = beta_tmp
 
             if self.args.method == "sch_pn_method_1" or self.args.method == "sch_pn_method_1_empty":
-                self.scheduler.calculate_itr_method_1(delta)
+                if '5' in RL_PRESET:
+                    self.scheduler.calculate_itr_method_0(delta)
+                else:
+                    self.scheduler.calculate_itr_method_1(delta)
             elif self.args.method == "sch_pn_method_2" or self.args.method == "sch_pn_method_2_empty":
                 self.scheduler.calculate_itr_method_2(rho, beta, delta)
 
@@ -326,6 +331,7 @@ class FedAvgTrainer(object):
                 if counting_days >= DATE_LENGTH:
                     logger.info("################training restarts")
                     counting_days = 0
+                    self.cum_time += self.time_counter
                     self.time_counter = 0  
           
            
@@ -429,7 +435,7 @@ class FedAvgTrainer(object):
             "Test/AccVar": test_acc_var,
             "Test/LossVar": test_loss_var,
             "round": round_idx,
-            "cum_time": self.time_counter,
+            "cum_time": self.cum_time + self.time_counter,
         }
         logger.info(stats)
         wandb.log(stats)
