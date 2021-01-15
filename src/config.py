@@ -85,7 +85,7 @@ THRESHOLD_WEIGHT_SIZE = 100000
 THRESHOLD_RHO = 1000
 THRESHOLD_BETA = 1000
 # set the threshold ratio for gradients
-THRESHOLD_GRADS_RATIO = 100
+THRESHOLD_GRADS_RATIO = 0.25
 
 # ===============================
 # set hyperparameters for calculate iteration num

@@ -27,6 +27,7 @@ class FedAvgTrainer(object):
         self.train_data_num_in_total = train_data_num
         self.test_data_num_in_total = test_data_num
         self.class_num = class_num
+        self.invalid_datasets = dict()
 
         self.client_list = []
         self.train_data_local_num_dict = train_data_local_num_dict
@@ -183,15 +184,24 @@ class FedAvgTrainer(object):
                 client = self.client_list[idx]
                 client_idx = client_indexes[idx]
                 dataset_idx = client_idx % self.client_num
-                client.update_local_dataset(dataset_idx, self.train_data_local_dict[dataset_idx],
-                                            self.test_data_local_dict[dataset_idx],
-                                            self.train_data_local_num_dict[dataset_idx])
+                if dataset_idx in self.invalid_datasets.keys():
+                    current_idx = self.invalid_datasets[dataset_idx]
+                else:
+                    current_idx = dataset_idx
+                while True:
+                    client.update_local_dataset(current_idx, self.train_data_local_dict[current_idx],
+                                                self.test_data_local_dict[current_idx],
+                                                self.train_data_local_num_dict[current_idx])
 
-                # train on new dataset
-                # add a new parameter "local_itr" to the funciton "client.train()"
-                # add a new return value "time_interval" which is the time consumed for training model in client.
-                w, loss, time_interval, local_beta, local_rho = client.train(net=copy.deepcopy(self.model_global).to(self.device), local_iteration = local_itr)
-                
+                    # train on new dataset
+                    # add a new parameter "local_itr" to the funciton "client.train()"
+                    # add a new return value "time_interval" which is the time consumed for training model in client.
+                    w, loss, time_interval, local_beta, local_rho = client.train(net=copy.deepcopy(self.model_global).to(self.device), local_iteration = local_itr)
+                    if loss != None and time_interval != None and local_beta != None and local_rho != None:
+                        if dataset_idx != current_idx:
+                            self.invalid_datasets[dataset_idx] = current_idx
+                        break
+                    current_idx = np.random.randint(self.class_num)
                 # record current time interval into time_interval_lst
                 time_interval_lst.append(time_interval)
                 # record current w into w_locals
@@ -399,7 +409,7 @@ class FedAvgTrainer(object):
             Note: for datasets like "fed_CIFAR100" and "fed_shakespheare",
             the training client number is larger than the testing client number
             """
-            if self.test_data_local_dict[client_idx] is None:
+            if self.test_data_local_dict[client_idx] is None or client_idx in self.invalid_datasets.keys():
                 continue
             client.update_local_dataset(client_idx, self.train_data_local_dict[client_idx],
                                         self.test_data_local_dict[client_idx],
