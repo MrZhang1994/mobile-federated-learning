@@ -53,10 +53,10 @@ class ANetProb(nn.Module):
 
         self.pointer_network = PointerNet.PointerNet(input_dim = FEATURE_DIMENSION,
                                                         embedding_dim = embedding_dimension,
-                                                        hidden_dim = hidden_dimension,
-                                                        lstm_layers = lstm_layers_num,
-                                                        dropout = 0,
-                                                        bidir=False)
+                                                        hidden_size = hidden_dimension,
+                                                        #lstm_layers = lstm_layers_num,
+                                                        #dropout = 0,
+                                                        bidirectional=False)
 
     def forward(self, state, action=None):
         '''
@@ -66,10 +66,11 @@ class ANetProb(nn.Module):
         # print(state.shape)
 
         if action is None:
-            output, pointer, hidden_state = self.pointer_network(state, False)
+            #output, pointer, hidden_state = self.pointer_network(state, False)
+            pointer = self.pointer_network(state, False)
         else:
-            output, pointer, hidden_state = self.pointer_network(state, False, action)
-
+            #output, pointer, hidden_state = self.pointer_network(state, False, action)
+            pointer = self.pointer_network(state, False, action)
         # pointer = pointer[0]
 
         log_prob = self.pointer_network.log_prob

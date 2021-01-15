@@ -1,354 +1,211 @@
 import torch
 import torch.nn as nn
-from torch.nn import Parameter
-import torch.nn.functional as F
-import config
-# torch.cuda.set_device(1)
+
+
+# Adopted from allennlp (https://github.com/allenai/allennlp/blob/master/allennlp/nn/util.py)
+def masked_log_softmax(vector: torch.Tensor, mask: torch.Tensor, dim: int = -1) -> torch.Tensor:
+	"""
+	``torch.nn.functional.log_softmax(vector)`` does not work if some elements of ``vector`` should be
+	masked.  This performs a log_softmax on just the non-masked portions of ``vector``.  Passing
+	``None`` in for the mask is also acceptable; you'll just get a regular log_softmax.
+	``vector`` can have an arbitrary number of dimensions; the only requirement is that ``mask`` is
+	broadcastable to ``vector's`` shape.  If ``mask`` has fewer dimensions than ``vector``, we will
+	unsqueeze on dimension 1 until they match.  If you need a different unsqueezing of your mask,
+	do it yourself before passing the mask into this function.
+	In the case that the input vector is completely masked, the return value of this function is
+	arbitrary, but not ``nan``.  You should be masking the result of whatever computation comes out
+	of this in that case, anyway, so the specific values returned shouldn't matter.  Also, the way
+	that we deal with this case relies on having single-precision floats; mixing half-precision
+	floats with fully-masked vectors will likely give you ``nans``.
+	If your logits are all extremely negative (i.e., the max value in your logit vector is -50 or
+	lower), the way we handle masking here could mess you up.  But if you've got logit values that
+	extreme, you've got bigger problems than this.
+	"""
+	if mask is not None:
+		mask = mask.float()
+		while mask.dim() < vector.dim():
+			mask = mask.unsqueeze(1)
+		# vector + mask.log() is an easy way to zero out masked elements in logspace, but it
+		# results in nans when the whole vector is masked.  We need a very small value instead of a
+		# zero in the mask for these cases.  log(1 + 1e-45) is still basically 0, so we can safely
+		# just add 1e-45 before calling mask.log().  We use 1e-45 because 1e-46 is so small it
+		# becomes 0 - this is just the smallest value we can actually use.
+		vector = vector + (mask + 1e-45).log()
+	return torch.nn.functional.log_softmax(vector, dim=dim)
+
+
+# Adopted from allennlp (https://github.com/allenai/allennlp/blob/master/allennlp/nn/util.py)
+def masked_max(vector: torch.Tensor,
+			   mask: torch.Tensor,
+			   dim: int,
+			   keepdim: bool = False,
+			   min_val: float = -1e7) -> (torch.Tensor, torch.Tensor):
+	"""
+	To calculate max along certain dimensions on masked values
+	Parameters
+	----------
+	vector : ``torch.Tensor``
+		The vector to calculate max, assume unmasked parts are already zeros
+	mask : ``torch.Tensor``
+		The mask of the vector. It must be broadcastable with vector.
+	dim : ``int``
+		The dimension to calculate max
+	keepdim : ``bool``
+		Whether to keep dimension
+	min_val : ``float``
+		The minimal value for paddings
+	Returns
+	-------
+	A ``torch.Tensor`` of including the maximum values.
+	"""
+	one_minus_mask = (1.0 - mask).byte()
+	replaced_vector = vector.masked_fill(one_minus_mask, min_val)
+	max_value, max_index = replaced_vector.max(dim=dim, keepdim=keepdim)
+	return max_value, max_index
+
 
 class Encoder(nn.Module):
-    """
-    Encoder class for Pointer-Net
-    """
+	def __init__(self, embedding_dim, hidden_size, num_layers=1, batch_first=True, bidirectional=True):
+		super(Encoder, self).__init__()
 
-    def __init__(self, embedding_dim,
-                 hidden_dim,
-                 n_layers,
-                 dropout,
-                 bidir):
-        """
-        Initiate Encoder
+		self.batch_first = batch_first
+		self.rnn = nn.LSTM(input_size=embedding_dim, hidden_size=hidden_size, num_layers=num_layers,
+						   batch_first=batch_first, bidirectional=bidirectional)
 
-        :param Tensor embedding_dim: Number of embbeding channels
-        :param int hidden_dim: Number of hidden units for the LSTM
-        :param int n_layers: Number of layers for LSTMs
-        :param float dropout: Float between 0-1
-        :param bool bidir: Bidirectional
-        """
-
-        super(Encoder, self).__init__()
-        self.hidden_dim = hidden_dim//2 if bidir else hidden_dim
-        self.n_layers = n_layers*2 if bidir else n_layers
-        self.bidir = bidir
-        self.lstm = nn.LSTM(embedding_dim,
-                            self.hidden_dim,
-                            n_layers,
-                            dropout=dropout,
-                            bidirectional=bidir)
-
-        # Used for propagating .cuda() command
-        self.h0 = Parameter(torch.zeros(1), requires_grad=False)
-        self.c0 = Parameter(torch.zeros(1), requires_grad=False)
-
-    def forward(self, embedded_inputs,
-                hidden):
-        """
-        Encoder - Forward-pass
-
-        :param Tensor embedded_inputs: Embedded inputs of Pointer-Net
-        :param Tensor hidden: Initiated hidden units for the LSTMs (h, c)
-        :return: LSTMs outputs and hidden units (h, c)
-        """
-
-        embedded_inputs = embedded_inputs.permute(1, 0, 2)
-
-        outputs, hidden = self.lstm(embedded_inputs, hidden)
-
-        return outputs.permute(1, 0, 2), hidden
-
-    def init_hidden(self, embedded_inputs):
-        """
-        Initiate hidden units
-
-        :param Tensor embedded_inputs: The embedded input of Pointer-NEt
-        :return: Initiated hidden units for the LSTMs (h, c)
-        """
-
-        batch_size = embedded_inputs.size(0)
-
-        # Reshaping (Expanding)
-        h0 = self.h0.unsqueeze(0).unsqueeze(0).repeat(self.n_layers,
-                                                      batch_size,
-                                                      self.hidden_dim)
-        c0 = self.h0.unsqueeze(0).unsqueeze(0).repeat(self.n_layers,
-                                                      batch_size,
-                                                      self.hidden_dim)
-
-        return h0, c0
+	def forward(self, embedded_inputs, input_lengths):
+		# Pack padded batch of sequences for RNN module
+		packed = nn.utils.rnn.pack_padded_sequence(embedded_inputs, input_lengths, batch_first=self.batch_first)
+		# Forward pass through RNN
+		outputs, hidden = self.rnn(packed)
+		# Unpack padding
+		outputs, _ = nn.utils.rnn.pad_packed_sequence(outputs, batch_first=self.batch_first)
+		# Return output and final hidden state
+		return outputs, hidden
 
 
 class Attention(nn.Module):
-    """
-    Attention model for Pointer-Net
-    """
+	def __init__(self, hidden_size):
+		super(Attention, self).__init__()
+		self.hidden_size = hidden_size
+		self.W1 = nn.Linear(hidden_size, hidden_size, bias=False)
+		self.W2 = nn.Linear(hidden_size, hidden_size, bias=False)
+		self.vt = nn.Linear(hidden_size, 1, bias=False)
 
-    def __init__(self, input_dim,
-                 hidden_dim):
-        """
-        Initiate Attention
+	def forward(self, decoder_state, encoder_outputs, mask):
+		# (batch_size, max_seq_len, hidden_size)
+		encoder_transform = self.W1(encoder_outputs)
 
-        :param int input_dim: Input's diamention
-        :param int hidden_dim: Number of hidden units in the attention
-        """
+		# (batch_size, 1 (unsqueezed), hidden_size)
+		decoder_transform = self.W2(decoder_state).unsqueeze(1)
 
-        super(Attention, self).__init__()
+		# 1st line of Eq.(3) in the paper
+		# (batch_size, max_seq_len, 1) => (batch_size, max_seq_len)
+		u_i = self.vt(torch.tanh(encoder_transform + decoder_transform)).squeeze(-1)
 
-        self.input_dim = input_dim
-        self.hidden_dim = hidden_dim
+		# softmax with only valid inputs, excluding zero padded parts
+		# log-softmax for a better numerical stability
+		log_score = masked_log_softmax(u_i, mask, dim=-1)
 
-        self.input_linear = nn.Linear(input_dim, hidden_dim)
-        self.context_linear = nn.Conv1d(input_dim, hidden_dim, 1, 1)
-        self.V = Parameter(torch.FloatTensor(hidden_dim), requires_grad=True)
-        self._inf = Parameter(torch.FloatTensor([float('-inf')]), requires_grad=False)
-        self.tanh = nn.Tanh()
-        self.softmax = nn.Softmax()
-
-        # Initialize vector V
-        nn.init.uniform(self.V, -1, 1)
-
-    def forward(self, input,
-                context,
-                mask):
-        """
-        Attention - Forward-pass
-
-        :param Tensor input: Hidden state h
-        :param Tensor context: Attention context
-        :param ByteTensor mask: Selection mask
-        :return: tuple of - (Attentioned hidden state, Alphas)
-        """
-
-        # (batch, hidden_dim, seq_len)
-        inp = self.input_linear(input).unsqueeze(2).expand(-1, -1, context.size(1))
-
-        # (batch, hidden_dim, seq_len)
-        context = context.permute(0, 2, 1)
-        ctx = self.context_linear(context)
-
-        # (batch, 1, hidden_dim)
-        V = self.V.unsqueeze(0).expand(context.size(0), -1).unsqueeze(1)
-
-        # (batch, seq_len)
-        att = torch.bmm(V, self.tanh(inp + ctx)).squeeze(1)
-        if len(att[mask]) > 0:
-            att[mask] = self.inf[mask]
-        alpha = self.softmax(att)
-
-        hidden_state = torch.bmm(ctx, alpha.unsqueeze(2)).squeeze(2)
-
-        return hidden_state, alpha
-
-    def init_inf(self, mask_size):
-        self.inf = self._inf.unsqueeze(1).expand(*mask_size)
-
-
-class Decoder(nn.Module):
-    """
-    Decoder model for Pointer-Net
-    """
-
-    def __init__(self, embedding_dim,
-                 hidden_dim):
-        """
-        Initiate Decoder
-
-        :param int embedding_dim: Number of embeddings in Pointer-Net
-        :param int hidden_dim: Number of hidden units for the decoder's RNN
-        """
-
-        super(Decoder, self).__init__()
-        self.embedding_dim = embedding_dim
-        self.hidden_dim = hidden_dim
-
-        self.input_to_hidden = nn.Linear(embedding_dim, 4 * hidden_dim)
-        self.hidden_to_hidden = nn.Linear(hidden_dim, 4 * hidden_dim)
-        self.hidden_out = nn.Linear(hidden_dim * 2, hidden_dim)
-        self.att = Attention(hidden_dim, hidden_dim)
-
-        # Used for propagating .cuda() command
-        self.mask = Parameter(torch.ones(1), requires_grad=False)
-        self.runner = Parameter(torch.zeros(1), requires_grad=False)
-
-    def forward(self, embedded_inputs,
-                decoder_input,
-                hidden,
-                context,
-                deterministic=True,
-                action=None,
-                single_ptr=False):
-        """
-        Decoder - Forward-pass
-
-        :param Tensor embedded_inputs: Embedded inputs of Pointer-Net
-        :param Tensor decoder_input: First decoder's input
-        :param Tensor hidden: First decoder's hidden states
-        :param Tensor context: Encoder's outputs
-        :return: (Output probabilities, Pointers indices), last hidden state, action log prob
-        """
-
-        batch_size = embedded_inputs.size(0)
-        input_length = embedded_inputs.size(1)
-
-        # (batch, seq_len)
-        mask = self.mask.repeat(input_length).unsqueeze(0).repeat(batch_size, 1)
-        self.att.init_inf(mask.size())
-
-        # Generating arang(input_length), broadcasted across batch_size
-        runner = self.runner.repeat(input_length)
-        for i in range(input_length):
-            runner.data[i] = i
-        runner = runner.unsqueeze(0).expand(batch_size, -1).long()
-
-        outputs = []
-        pointers = []
-        log_prob = 0.
-        entropy = 0.
-
-        def step(x, hidden):
-            """
-            Recurrence step function
-
-            :param Tensor x: Input at time t
-            :param tuple(Tensor, Tensor) hidden: Hidden states at time t-1
-            :return: Hidden states at time t (h, c), Attention probabilities (Alpha)
-            """
-
-            # Regular LSTM
-            h, c = hidden
-
-            gates = self.input_to_hidden(x) + self.hidden_to_hidden(h)
-            input, forget, cell, out = gates.chunk(4, 1)
-
-            input = torch.sigmoid(input)
-            forget = torch.sigmoid(forget)
-            cell = torch.tanh(cell)
-            out = torch.sigmoid(out)
-
-            c_t = (forget * c) + (input * cell)
-            h_t = out * torch.tanh(c_t)
-
-            # Attention section
-            hidden_t, output = self.att(h_t, context, torch.eq(mask, 0))
-            hidden_t = torch.tanh(self.hidden_out(torch.cat((hidden_t, h_t), 1)))
-
-            return hidden_t, c_t, output
-
-        # Recurrence loop
-        sample_num = 0
-        for i in range(input_length):
-            h_t, c_t, outs = step(decoder_input, hidden)
-            hidden = (h_t, c_t)
-
-            # Masking selected inputs
-            masked_outs = outs * mask
-
-            # Get maximum probabilities and indices
-            if deterministic:
-                max_probs, indices = masked_outs.max(1)
-            else:
-                a_distribution = torch.distributions.Categorical(
-                    mask if config.RL_UNIFORM else masked_outs)
-                if action is None:
-                    indices = a_distribution.sample()
-                elif i < len(action):
-                    indices = action[:, i]
-                else:
-                    indices = torch.tensor([input_length - 1])
-                log_prob += a_distribution.log_prob(indices)
-                entropy += a_distribution.entropy()
-            sample_num += 1
-            one_hot_pointers = (runner == indices.unsqueeze(1).expand(-1, outs.size()[1]))
-
-            # Update mask to ignore seen indices
-            mask  = mask * (1 - one_hot_pointers.float())
-
-            # Get embedded inputs by max indices
-            embedding_mask = one_hot_pointers.unsqueeze(2).expand(-1, -1, self.embedding_dim)
-            decoder_input = embedded_inputs[embedding_mask.data].view(batch_size, self.embedding_dim)
-
-            outputs.append(outs.unsqueeze(0))
-            pointers.append(indices.unsqueeze(1))
-            # TODO: batch support
-            if single_ptr or indices[0] == input_length - 1:
-                break
-
-        outputs = torch.cat(outputs).permute(1, 0, 2)
-        pointers = torch.cat(pointers, 1)
-
-        return (outputs, pointers), hidden, (log_prob / sample_num, entropy / sample_num)
+		return log_score
 
 
 class PointerNet(nn.Module):
-    """
-    Pointer-Net
-    """
+	def __init__(self, input_dim, 
+                    embedding_dim, 
+                    hidden_size, 
+                    bidirectional=True, 
+                    batch_first=True):
+		super(PointerNet, self).__init__()
 
-    def __init__(self, input_dim, 
-                    embedding_dim,
-                    hidden_dim,
-                    lstm_layers,
-                    dropout,
-                    bidir=False):
-        """
-        Initiate Pointer-Net
+		# Embedding dimension
+		self.embedding_dim = embedding_dim
+		# (Decoder) hidden size
+		self.hidden_size = hidden_size
+		# Bidirectional Encoder
+		self.bidirectional = bidirectional
+		self.num_directions = 2 if bidirectional else 1
+		self.num_layers = 1
+		self.batch_first = batch_first
 
-        :param int embedding_dim: Number of embbeding channels
-        :param int hidden_dim: Encoders hidden units
-        :param int lstm_layers: Number of layers for LSTMs
-        :param float dropout: Float between 0-1
-        :param bool bidir: Bidirectional
-        """
+		# We use an embedding layer for more complicate application usages later, e.g., word sequences.
+		self.embedding = nn.Linear(in_features=input_dim, out_features=embedding_dim, bias=False)
+		self.encoder = Encoder(embedding_dim=embedding_dim, hidden_size=hidden_size, num_layers=self.num_layers,
+							   bidirectional=bidirectional, batch_first=batch_first)
+		self.decoding_rnn = nn.LSTMCell(input_size=hidden_size, hidden_size=hidden_size)
+		self.attn = Attention(hidden_size=hidden_size)
 
-        super(PointerNet, self).__init__()
-        self.embedding_dim = embedding_dim
-        self.bidir = bidir
-        self.embedding = nn.Linear(input_dim, embedding_dim)
-        self.encoder = Encoder(embedding_dim,
-                               hidden_dim,
-                               lstm_layers,
-                               dropout,
-                               bidir)
-        self.decoder = Decoder(embedding_dim, hidden_dim)
-        self.decoder_input0 = Parameter(torch.FloatTensor(embedding_dim), requires_grad=False)
-        self.log_prob = 0.
-        self.entropy = 0.
+		for m in self.modules():
+			if isinstance(m, nn.Linear):
+				if m.bias is not None:
+					torch.nn.init.zeros_(m.bias)
 
-        # Initialize decoder_input0
-        nn.init.uniform(self.decoder_input0, -1, 1)
+	def forward(self, input_seq, input_lengths):
 
-    def forward(self, inputs, deterministic=True, action=None, single_ptr=False):
-        """
-        PointerNet - Forward-pass
+		if self.batch_first:
+			batch_size = input_seq.size(0)
+			max_seq_len = input_seq.size(1)
+		else:
+			batch_size = input_seq.size(1)
+			max_seq_len = input_seq.size(0)
 
-        :param Tensor inputs: Input sequence
-        :return: Pointers probabilities and indices
-        """
+		# Embedding
+		embedded = self.embedding(input_seq)
+		# (batch_size, max_seq_len, embedding_dim)
 
-        batch_size = inputs.size(0)
-        input_length = inputs.size(1)
+		# encoder_output => (batch_size, max_seq_len, hidden_size) if batch_first else (max_seq_len, batch_size, hidden_size)
+		# hidden_size is usually set same as embedding size
+		# encoder_hidden => (num_layers * num_directions, batch_size, hidden_size) for each of h_n and c_n
+		encoder_outputs, encoder_hidden = self.encoder(embedded, input_lengths)
 
-        decoder_input0 = self.decoder_input0.unsqueeze(0).expand(batch_size, -1)
+		if self.bidirectional:
+			# Optionally, Sum bidirectional RNN outputs
+			encoder_outputs = encoder_outputs[:, :, :self.hidden_size] + encoder_outputs[:, :, self.hidden_size:]
 
-        inputs = inputs.view(batch_size * input_length, -1)
-        embedded_inputs = self.embedding(inputs).view(batch_size, input_length, -1)
+		encoder_h_n, encoder_c_n = encoder_hidden
+		encoder_h_n = encoder_h_n.view(self.num_layers, self.num_directions, batch_size, self.hidden_size)
+		encoder_c_n = encoder_c_n.view(self.num_layers, self.num_directions, batch_size, self.hidden_size)
 
-        encoder_hidden0 = self.encoder.init_hidden(embedded_inputs)
-        encoder_outputs, encoder_hidden = self.encoder(embedded_inputs,
-                                                       encoder_hidden0)
-        if self.bidir:
-            decoder_hidden0 = (torch.cat(encoder_hidden[0][-2:], dim=-1),
-                               torch.cat(encoder_hidden[1][-2:], dim=-1))
-        else:
-            decoder_hidden0 = (encoder_hidden[0][-1],
-                               encoder_hidden[1][-1])
+		# Lets use zeros as an intial input for sorting example
+		decoder_input = encoder_outputs.new_zeros(torch.Size((batch_size, self.hidden_size)))
+		decoder_hidden = (encoder_h_n[-1, 0, :, :].squeeze(), encoder_c_n[-1, 0, :, :].squeeze())
 
+		range_tensor = torch.arange(max_seq_len, device=input_lengths.device, dtype=input_lengths.dtype).expand(batch_size, max_seq_len, max_seq_len)
+		each_len_tensor = input_lengths.view(-1, 1, 1).expand(batch_size, max_seq_len, max_seq_len)
 
-        (outputs, pointers), decoder_hidden, (self.log_prob, self.entropy) = \
-            self.decoder(embedded_inputs,
-                         decoder_input0,
-                         decoder_hidden0,
-                         encoder_outputs,
-                         deterministic,
-                         action,
-                         single_ptr)
+		row_mask_tensor = (range_tensor < each_len_tensor)
+		col_mask_tensor = row_mask_tensor.transpose(1, 2)
+		mask_tensor = row_mask_tensor * col_mask_tensor
 
-        return  outputs, pointers, decoder_hidden[0]
+		pointer_log_scores = []
+		pointer_argmaxs = []
+
+		for i in range(max_seq_len):
+			# We will simply mask out when calculating attention or max (and loss later)
+			# not all input and hiddens, just for simplicity
+			sub_mask = mask_tensor[:, i, :].float()
+
+			# h, c: (batch_size, hidden_size)
+			h_i, c_i = self.decoding_rnn(decoder_input, decoder_hidden)
+
+			# next hidden
+			decoder_hidden = (h_i, c_i)
+
+			# Get a pointer distribution over the encoder outputs using attention
+			# (batch_size, max_seq_len)
+			log_pointer_score = self.attn(h_i, encoder_outputs, sub_mask)
+			pointer_log_scores.append(log_pointer_score)
+
+			# Get the indices of maximum pointer
+			_, masked_argmax = masked_max(log_pointer_score, sub_mask, dim=1, keepdim=True)
+
+			pointer_argmaxs.append(masked_argmax)
+			index_tensor = masked_argmax.unsqueeze(-1).expand(batch_size, 1, self.hidden_size)
+
+			# (batch_size, hidden_size)
+			decoder_input = torch.gather(encoder_outputs, dim=1, index=index_tensor).squeeze(1)
+
+		pointer_log_scores = torch.stack(pointer_log_scores, 1)
+		pointer_argmaxs = torch.cat(pointer_argmaxs, 1)
+
+		#return pointer_log_scores, pointer_argmaxs, mask_tensor
+		return pointer_argmaxs
