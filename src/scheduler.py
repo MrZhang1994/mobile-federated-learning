@@ -18,7 +18,7 @@ LSTM_LAYERS_NUM = config.LSTM_LAYERS_NUM
 XI = config.XI              # set xi
 EPSILON = config.EPSILON    # set epsilon
 KAI = config.KAI            # set KAI
-ETA = config.ETA
+
 
 # set channel_data
 channel_data = config.channel_data
@@ -37,6 +37,7 @@ class Reward:
     def __init__(self):
         self.F_r = 0
         self.F_r_last = 0
+        self.FAIRNESS_MULTIPLIER = config.FAIRNESS_MULTIPLIER
 
     def calculate_reward(self, loss_locals, selection, FPF, time_length):
         """
@@ -48,7 +49,7 @@ class Reward:
         if np.sum(selection) == 0:
             return 0
         ALPHA = 10000
-        BETA = 100
+        BETA = 100*self.FAIRNESS_MULTIPLIER
         M = len(loss_locals[0])
 
         self.F_r = np.matmul(selection,loss_locals.T)/(np.sum(selection))
@@ -254,13 +255,15 @@ class Scheduler_PN_method_2:
 
         self.itr = 3
 
+        self.ETA = config.ETA
+
     def calculate_itr_method_2(self, rho, beta, delta):
 
         '''
         Original method
         '''
         A3 = KAI*(1-XI)/(2*beta)
-        B3 = ETA*beta+1
+        B3 = self.ETA*beta+1
         C3 = (rho*delta)/(beta*(EPSILON**2))
 
         n_i = 0
