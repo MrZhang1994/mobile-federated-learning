@@ -256,19 +256,33 @@ class Scheduler_PN_method_2:
 
     def calculate_itr_method_2(self, rho, beta, delta):
 
-        A3 = KAI*(1-XI)/(2*beta)
-        B3 = ETA*beta+1
-        C3 = (rho*delta)/(beta*(EPSILON**2))
+        '''
+        Original method
+        '''
+        # A3 = KAI*(1-XI)/(2*beta)
+        # B3 = ETA*beta+1
+        # C3 = (rho*delta)/(beta*(EPSILON**2))
 
-        n_i = 0
-        f_last = 0
-        f = 0
-        while f<=f_last:
-            f_last = f
-            n_i = n_i+1
-            f = A3*n_i - B3*(C3**n_i-1)
+        # n_i = 0
+        # f_last = 0
+        # f = 0
+        # while f<=f_last:
+        #     f_last = f
+        #     n_i = n_i+1
+        #     f = A3*n_i - B3*(C3**n_i-1)
 
-        self.itr = n_i-1
+        # self.itr = n_i-1
+
+        '''
+        new method
+        '''
+        EPSILON_SQUARE = 0.2
+        ratio = 1.5
+        C3 = max((rho*delta)/(beta*EPSILON_SQUARE), ratio)
+        A3_DIVIDED_BY_B3 = math.log(ratio)*(ratio**20)
+        optimum = math.log(A3_DIVIDED_BY_B3/math.log(C3), C3)
+        self.itr = max(round(optimum), 1)
+        
         return self.itr
 
 
