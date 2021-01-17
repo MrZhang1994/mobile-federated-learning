@@ -18,7 +18,7 @@ LSTM_LAYERS_NUM = config.LSTM_LAYERS_NUM
 XI = config.XI              # set xi
 EPSILON = config.EPSILON    # set epsilon
 KAI = config.KAI            # set KAI
-ETA = config.ETA
+
 
 # set channel_data
 channel_data = config.channel_data
@@ -37,6 +37,7 @@ class Reward:
     def __init__(self):
         self.F_r = 0
         self.F_r_last = 0
+        self.FAIRNESS_MULTIPLIER = config.FAIRNESS_MULTIPLIER
 
     def calculate_reward(self, loss_locals, selection, FPF, time_length):
         """
@@ -48,7 +49,7 @@ class Reward:
         if np.sum(selection) == 0:
             return 0
         ALPHA = 10000
-        BETA = 100
+        BETA = 100*self.FAIRNESS_MULTIPLIER
         M = len(loss_locals[0])
 
         self.F_r = np.matmul(selection,loss_locals.T)/(np.sum(selection))
@@ -254,10 +255,15 @@ class Scheduler_PN_method_2:
 
         self.itr = 3
 
+        self.ETA = config.ETA
+
     def calculate_itr_method_2(self, rho, beta, delta):
 
+        '''
+        Original method
+        '''
         A3 = KAI*(1-XI)/(2*beta)
-        B3 = ETA*beta+1
+        B3 = self.ETA*beta+1
         C3 = (rho*delta)/(beta*(EPSILON**2))
 
         n_i = 0
@@ -269,6 +275,152 @@ class Scheduler_PN_method_2:
             f = A3*n_i - B3*(C3**n_i-1)
 
         self.itr = n_i-1
+
+        return self.itr
+
+
+    def sch_pn_empty(self, round_idx, time_counter):
+        channel_state, self.available_car = self.env.update(time_counter)
+        state = np.zeros((1, len(self.available_car[0]), 3))
+        for i in range(len(self.available_car[0])):
+            state[0, i, 0] = channel_state[0, i]
+            state[0, i, 1] = 0
+            state[0, i, 2] = 0
+
+        pointer, hidden_states = self.agent.choose_action_withAmender(state)
+
+        self.action_last = [pointer, hidden_states]
+        self.state_last = state
+
+        client_indexes = []
+        if len(pointer) != 0:
+            for i in range(len(pointer)):
+                client_indexes.append(int(self.available_car[0, pointer[i]]))
+        local_itr = self.itr
+
+        # write to the scheduler csv
+        with open(scheduler_csv, mode = "a+", encoding='utf-8', newline='') as file:
+            csv_writer = csv.writer(file)
+            if round_idx == 0:
+                csv_writer.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'reward', 'loss_a', 'loss_c'])
+            csv_writer.writerow([time_counter, str(self.available_car[0].tolist()),\
+                                    str(state[0].tolist()), str(pointer),\
+                                    str(client_indexes), local_itr])
+            file.flush()
+        return client_indexes, local_itr        
+
+    def sch_pn_test(self, round_idx, time_counter):
+        channel_state, self.available_car = self.env.update(time_counter)
+        state = np.zeros((1, len(self.available_car[0]), 3))
+        for i in range(len(self.available_car[0])):
+            state[0, i, 0] = channel_state[0, i]
+            state[0, i, 1] = 0
+            state[0, i, 2] = 0
+        pointer, hidden_states = self.agent.choose_action(state)
+
+        self.action_last = [pointer, hidden_states]
+        self.state_last = state
+
+        client_indexes = []
+        if len(pointer) != 0:
+            for i in range(len(pointer)):
+                client_indexes.append(int(self.available_car[0, pointer[i]]))
+        local_itr = self.itr
+
+        return client_indexes, local_itr   
+
+    def sch_pn(self, round_idx, time_counter, loss_locals, FPF_idx_lst, local_loss_lst):
+        # ================================================================================================
+        # calculate reward
+        selection = np.zeros((1, len(self.available_car[0])))
+        FPF = np.zeros((1, len(self.available_car[0])))
+        loss_local = np.zeros((1, len(self.available_car[0])))
+        pointer = self.action_last[0]
+
+        if len(pointer)>0:
+            for i in range(len(pointer)):
+                selection[0, int(pointer[i])] = 1
+                FPF[0, int(pointer[i])] = FPF_idx_lst[int(self.available_car[0, int(pointer[i])])]
+                loss_local[0, int(pointer[i])] = loss_locals[i]
+        
+        time_length = time_counter - self.time_counter_last
+        reward = self.rwd.calculate_reward(loss_local, selection, FPF, time_length)
+        # ================================================================================================
+        # update state
+        channel_state, self.available_car = self.env.update(time_counter)
+
+        state = np.zeros((1, len(self.available_car[0]), 3))
+        for i in range(len(self.available_car[0])):
+            state[0, i, 0] = channel_state[0, i]
+            if FPF_idx_lst==[]:
+                state[0, i, 1] = 0
+            else:
+                state[0, i, 1] = FPF_idx_lst[int(self.available_car[0, i])]
+            state[0, i, 2] = local_loss_lst[0, int(self.available_car[0, i])]
+        # del available_car_last
+        # ================================================================================================
+        # train agent
+        self.agent.store_transition(self.state_last, self.action_last, [reward], state)
+        loss = [0, 0]
+        if self.agent.memory:
+            loss_a, td_error = self.agent.learn()
+            loss = [loss_a, td_error]
+        # ================================================================================================
+        # produce action and mes
+        if round_idx < config.AMEND_ITER:
+            pointer, hidden_states = self.agent.choose_action_withAmender(state)
+        else:
+            pointer, hidden_states = self.agent.choose_action(state)
+
+        client_indexes = []
+        if len(pointer) != 0:
+            for i in range(len(pointer)):
+                client_indexes.append(int(self.available_car[0, pointer[i]]))
+        local_itr = self.itr    
+        # ================================================================================================
+        # record action,state,time_counter
+        self.action_last = [pointer, hidden_states]
+        self.state_last = state
+        self.time_counter_last = time_counter
+
+        # write to the scheduler csv
+        with open(scheduler_csv, mode = "a+", encoding='utf-8', newline='') as file:
+            csv_writer = csv.writer(file)
+            if round_idx == 0:
+                csv_writer.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'reward', 'loss_a', 'loss_c'])
+            csv_writer.writerow([time_counter, str(self.available_car[0].tolist()),\
+                                    str(state[0].tolist()), str(pointer),\
+                                    str(client_indexes), local_itr, reward]+loss)
+            file.flush()
+        return client_indexes, local_itr, (reward, *loss)
+
+class Scheduler_PN_method_3:
+    def __init__(self):
+        self.rwd = Reward()
+        RL = pg_pn.PG
+        self.agent = RL(EMBEDDING_DIMENSION, HIDDEN_DIMENSION, LSTM_LAYERS_NUM)
+        self.env = Environment()
+
+        self.FPF1_idx_lst = []
+        self.time_counter_last = 0
+
+        self.state_last = None
+        self.action_last = None
+        self.available_car = None
+
+        self.itr = 3
+
+    def calculate_itr_method_3(self, rho, beta, delta):
+        '''
+        new method
+        '''
+        EPSILON_SQUARE = 0.2
+        ratio = 1.5
+        C3 = max((rho*delta)/(beta*EPSILON_SQUARE), ratio)
+        A3_DIVIDED_BY_B3 = math.log(ratio)*(ratio**20)
+        optimum = math.log(A3_DIVIDED_BY_B3/math.log(C3), C3)
+        self.itr = max(round(optimum), 1)
+        
         return self.itr
 
 
