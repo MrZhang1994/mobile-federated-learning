@@ -202,7 +202,7 @@ class FedAvgTrainer(object):
                     # add a new parameter "local_itr" to the funciton "client.train()"
                     # add a new return value "time_interval" which is the time consumed for training model in client.
                     w, loss, local_beta, local_rho = client.train(net=copy.deepcopy(self.model_global).to(self.device), local_iteration = local_itr)
-                    if loss != None and time_interval != None and local_beta != None and local_rho != None:
+                    if loss != None and local_beta != None and local_rho != None:
                         if dataset_idx != current_idx:
                             self.invalid_datasets[dataset_idx] = current_idx
                         break
