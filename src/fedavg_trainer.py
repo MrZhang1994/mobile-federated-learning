@@ -174,7 +174,7 @@ class FedAvgTrainer(object):
             # store the last model's training parameters.
             last_w = copy.deepcopy(self.model_global.cpu().state_dict())
             # local Initialization
-            w_locals, loss_locals, time_interval_lst, loss_list, beta_locals, rho_locals = [], [], [], [], [], []
+            w_locals, loss_locals, loss_list, beta_locals, rho_locals = [], [], [], [], []
             """
             for scalability: following the original FedAvg algorithm, we uniformly sample a fraction of clients in each round.
             Instead of changing the 'Client' instances, our implementation keeps the 'Client' instances and then updates their local dataset 
@@ -196,15 +196,14 @@ class FedAvgTrainer(object):
                     # train on new dataset
                     # add a new parameter "local_itr" to the funciton "client.train()"
                     # add a new return value "time_interval" which is the time consumed for training model in client.
-                    w, loss, time_interval, local_beta, local_rho = client.train(net=copy.deepcopy(self.model_global).to(self.device), local_iteration = local_itr)
+                    w, loss, local_beta, local_rho = client.train(net=copy.deepcopy(self.model_global).to(self.device), local_iteration = local_itr)
                     if loss != None and time_interval != None and local_beta != None and local_rho != None:
                         if dataset_idx != current_idx:
                             self.invalid_datasets[dataset_idx] = current_idx
                         break
                     current_idx = np.random.randint(self.class_num)
                     logger.warning("changing dataset for {} to {}".format(client_idx, current_idx))
-                # record current time interval into time_interval_lst
-                time_interval_lst.append(time_interval)
+
                 # record current w into w_locals
                 w_locals.append((client.get_sample_number(), copy.deepcopy(w)))
                 # record current loss into loss_locals
@@ -229,8 +228,8 @@ class FedAvgTrainer(object):
             self.model_global.load_state_dict(w_glob)
 
             # update the time counter
-            if time_interval_lst:
-                self.time_counter += math.ceil(TIME_COMPRESSION_RATIO*(sum(time_interval_lst) / len(time_interval_lst)))
+            if list(client_indexes):
+                self.time_counter += math.ceil(LOCAL_TRAINING_TIME)
             logger.debug("time_counter after training: {}".format(self.time_counter))
             
             trainer_csv_line += [self.time_counter-trainer_csv_line[1], np.var(local_loss_lst), str(loss_list)]

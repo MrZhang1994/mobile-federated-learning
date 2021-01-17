@@ -1,5 +1,4 @@
 # newly added libraries, to record the time interval
-import time
 import copy
 import torch
 from torch import nn
@@ -50,16 +49,10 @@ class Client:
                                               weight_decay=self.args.wd, amsgrad=True)
 
         # initialize values
-        time_start = float(time.time()) # record the start training tim
         rho, beta = None, None # initialize with null values
         # get data
         x, labels = next(iter(self.local_training_data))
         x, labels = x.to(self.device), labels.to(self.device)    
-
-        logger.debug("***************************************************")
-        logger.debug("inputs.shape: {}".format(x.shape))
-        logger.debug("===================================================")
-        logger.debug("labels.shape: {}".format(labels.shape))
         # get lasts
         net.eval()
         last_w = torch.cat([param.view(-1) for param in net.parameters()]) # get last weights
@@ -75,6 +68,7 @@ class Client:
             loss = self.criterion(log_probs, labels)
             loss.backward()
             grads = torch.cat([param.grad.view(-1) for param in net.parameters()]) # get current grads
+            # if grads meets something strange, we will terminate the training process.
             if torch.isnan(grads).sum() > 0 or torch.isnan(loss) or torch.norm(grads) > self.args.lr * THRESHOLD_GRADS_RATIO * torch.norm(last_w):
                 logger.warning("grads {} too large than weights {} or meets nan with epoch {}".format(torch.norm(grads), torch.norm(last_w), epoch))
                 return net.cpu().state_dict(), None, None, None, None
@@ -82,7 +76,6 @@ class Client:
 
             loss = loss.item() # get current loss
             w = torch.cat([param.view(-1) for param in net.parameters()]) # get current w
-            logger.debug("local client {} norm of current weights - last weights: {}".format(self.client_idx, torch.norm(w - last_w)))
 
             # calculate rho and update rho
             rho_tmp = abs(loss - last_loss) / torch.norm(w - last_w)
@@ -102,11 +95,7 @@ class Client:
             logger.debug('Client Index = {}\tEpoch: {}\tLoss: {:.6f}'.format(
                 self.client_idx, epoch, loss))
 
-        # record the end time
-        time_end = float(time.time()) 
-
-        # add a new return value "time_interval"
-        return net.cpu().state_dict(), loss, (time_end - time_start), beta.item(), rho.item()
+        return net.cpu().state_dict(), loss, beta.item(), rho.item()
 
 
     def local_test(self, model_global, b_use_test_dataset=False):

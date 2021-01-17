@@ -86,6 +86,8 @@ THRESHOLD_RHO = 1000
 THRESHOLD_BETA = 1000
 # set the threshold ratio for gradients
 THRESHOLD_GRADS_RATIO = 50
+# set the contant for time of training.
+LOCAL_TRAINING_TIME = 1
 
 # ===============================
 # set hyperparameters for calculate iteration num
