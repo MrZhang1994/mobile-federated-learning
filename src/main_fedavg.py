@@ -28,14 +28,15 @@ from fedml_api.data_preprocessing.shakespeare.data_loader import load_partition_
 from fedml_api.data_preprocessing.fed_shakespeare.data_loader import load_partition_data_federated_shakespeare
 from fedml_api.data_preprocessing.stackoverflow_lr.data_loader import load_partition_data_federated_stackoverflow_lr
 from fedml_api.data_preprocessing.stackoverflow_nwp.data_loader import load_partition_data_federated_stackoverflow_nwp
-from fedml_api.data_preprocessing.FederatedEMNIST.data_loader import load_partition_data_federated_emnist
-from fedml_api.data_preprocessing.MNIST.data_loader import load_partition_data_mnist
-
+from fedml_api.data_preprocessing.ImageNet.data_loader import load_partition_data_ImageNet
+from fedml_api.data_preprocessing.Landmarks.data_loader import load_partition_data_landmarks
 from fedml_api.model.cv.mobilenet import mobilenet
 from fedml_api.model.cv.resnet import resnet56
 from fedml_api.model.cv.cnn import CNN_DropOut
+from fedml_api.data_preprocessing.FederatedEMNIST.data_loader import load_partition_data_federated_emnist
 from fedml_api.model.nlp.rnn import RNN_OriginalFedAvg, RNN_StackOverFlow
 
+from fedml_api.data_preprocessing.MNIST.data_loader import load_partition_data_mnist
 from fedml_api.model.linear.lr import LogisticRegression
 from fedml_api.model.cv.resnet_gn import resnet18
 
@@ -113,47 +114,84 @@ def load_data(args, dataset_name):
     """
     batch_size = 128
     if dataset_name == "mnist":
-        logger.debug("load_data. dataset_name = %s" % dataset_name)
+        logging.info("load_data. dataset_name = %s" % dataset_name)
         client_num, train_data_num, test_data_num, train_data_global, test_data_global, \
         train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
         class_num = load_partition_data_mnist(batch_size)
 
     elif dataset_name == "femnist":
-        logger.debug("load_data. dataset_name = %s" % dataset_name)
+        logger.info("load_data. dataset_name = %s" % dataset_name)
         client_num, train_data_num, test_data_num, train_data_global, test_data_global, \
         train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
         class_num = load_partition_data_federated_emnist(args.dataset, args.data_dir)
 
     elif dataset_name == "shakespeare":
-        logger.debug("load_data. dataset_name = %s" % dataset_name)
+        logger.info("load_data. dataset_name = %s" % dataset_name)
         client_num, train_data_num, test_data_num, train_data_global, test_data_global, \
         train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
         class_num = load_partition_data_shakespeare(batch_size)
 
     elif dataset_name == "fed_shakespeare":
-        logger.debug("load_data. dataset_name = %s" % dataset_name)
+        logger.info("load_data. dataset_name = %s" % dataset_name)
         client_num, train_data_num, test_data_num, train_data_global, test_data_global, \
         train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
         class_num = load_partition_data_federated_shakespeare(args.dataset, args.data_dir)
+        args.client_num_in_total = client_num
 
     elif dataset_name == "fed_cifar100":
-        logger.debug("load_data. dataset_name = %s" % dataset_name)
+        logger.info("load_data. dataset_name = %s" % dataset_name)
         client_num, train_data_num, test_data_num, train_data_global, test_data_global, \
         train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
         class_num = load_partition_data_federated_cifar100(args.dataset, args.data_dir)
 
     elif dataset_name == "stackoverflow_lr":
-        logger.debug("load_data. dataset_name = %s" % dataset_name)
+        logging.info("load_data. dataset_name = %s" % dataset_name)
         client_num, train_data_num, test_data_num, train_data_global, test_data_global, \
         train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
         class_num = load_partition_data_federated_stackoverflow_lr(args.dataset, args.data_dir)
 
     elif dataset_name == "stackoverflow_nwp":
-        logger.debug("load_data. dataset_name = %s" % dataset_name)
+        logger.info("load_data. dataset_name = %s" % dataset_name)
         client_num, train_data_num, test_data_num, train_data_global, test_data_global, \
         train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
         class_num = load_partition_data_federated_stackoverflow_nwp(args.dataset, args.data_dir)
-        
+
+    elif dataset_name == "ILSVRC2012":
+        logger.info("load_data. dataset_name = %s" % dataset_name)
+        train_data_num, test_data_num, train_data_global, test_data_global, \
+        train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
+        class_num = load_partition_data_ImageNet(dataset=dataset_name, data_dir=args.data_dir,
+                                                 partition_method=None, partition_alpha=None,
+                                                 client_number=args.client_num_in_total, batch_size=batch_size)
+
+    elif dataset_name == "gld23k":
+        logger.info("load_data. dataset_name = %s" % dataset_name)
+        args.client_num_in_total = 233
+        fed_train_map_file = os.path.join(args.data_dir, 'mini_gld_train_split.csv')
+        fed_test_map_file = os.path.join(args.data_dir, 'mini_gld_test.csv')
+
+        train_data_num, test_data_num, train_data_global, test_data_global, \
+        train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
+        class_num = load_partition_data_landmarks(dataset=dataset_name, data_dir=args.data_dir,
+                                                  fed_train_map_file=fed_train_map_file,
+                                                  fed_test_map_file=fed_test_map_file,
+                                                  partition_method=None, partition_alpha=None,
+                                                  client_number=args.client_num_in_total, batch_size=batch_size)
+
+    elif dataset_name == "gld160k":
+        logger.info("load_data. dataset_name = %s" % dataset_name)
+        args.client_num_in_total = 1262
+        fed_train_map_file = os.path.join(args.data_dir, 'federated_train.csv')
+        fed_test_map_file = os.path.join(args.data_dir, 'test.csv')
+
+        train_data_num, test_data_num, train_data_global, test_data_global, \
+        train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
+        class_num = load_partition_data_landmarks(dataset=dataset_name, data_dir=args.data_dir,
+                                                  fed_train_map_file=fed_train_map_file,
+                                                  fed_test_map_file=fed_test_map_file,
+                                                  partition_method=None, partition_alpha=None,
+                                                  client_number=args.client_num_in_total, batch_size=batch_size)
+
     else:
         if dataset_name == "cifar10":
             data_loader = load_partition_data_cifar10
@@ -163,11 +201,11 @@ def load_data(args, dataset_name):
             data_loader = load_partition_data_cinic10
         else:
             data_loader = load_partition_data_cifar10
-        client_num, train_data_num, test_data_num, train_data_global, test_data_global, \
+        train_data_num, test_data_num, train_data_global, test_data_global, \
         train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
         class_num = data_loader(args.dataset, args.data_dir, args.partition_method,
-                                args.partition_alpha, config.client_num_in_total, batch_size)
-    
+                                args.partition_alpha, args.client_num_in_total, batch_size)
+ 
     logger.info("-------------batches combine------------")
     train_data_global = combine_batches(train_data_global)
     test_data_global = combine_batches(test_data_global)
@@ -203,31 +241,32 @@ def create_model(args, model_name, output_dim):
     logger.debug("create_model. model_name = %s, output_dim = %s" % (model_name, output_dim))
     model = None
     if model_name == "lr" and args.dataset == "mnist":
-        logger.debug("LogisticRegression + MNIST")
+        logger.info("LogisticRegression + MNIST")
         model = LogisticRegression(28 * 28, output_dim)
     elif model_name == "cnn" and args.dataset == "femnist":
-        logger.debug("CNN + FederatedEMNIST")
+        logger.info("CNN + FederatedEMNIST")
         model = CNN_DropOut(False)
     elif model_name == "resnet18_gn" and args.dataset == "fed_cifar100":
-        logger.debug("ResNet18_GN + Federated_CIFAR100")
+        logger.info("ResNet18_GN + Federated_CIFAR100")
         model = resnet18()
     elif model_name == "rnn" and args.dataset == "shakespeare":
-        logger.debug("RNN + shakespeare")
+        logger.info("RNN + shakespeare")
         model = RNN_OriginalFedAvg()
     elif model_name == "rnn" and args.dataset == "fed_shakespeare":
-        logger.debug("RNN + fed_shakespeare")
+        logger.info("RNN + fed_shakespeare")
         model = RNN_OriginalFedAvg()
     elif model_name == "lr" and args.dataset == "stackoverflow_lr":
-        logger.debug("lr + stackoverflow_lr")
-        model = LogisticRegression(10000, output_dim) 
+        logger.info("lr + stackoverflow_lr")
+        model = LogisticRegression(10000, output_dim)
     elif model_name == "rnn" and args.dataset == "stackoverflow_nwp":
-        logger.debug("RNN + stackoverflow_nwp")
+        logger.info("RNN + stackoverflow_nwp")
         model = RNN_StackOverFlow()
     elif model_name == "resnet56":
         model = resnet56(class_num=output_dim)
     elif model_name == "mobilenet":
         model = mobilenet(class_num=output_dim)
     return model
+
 
 
 def main():

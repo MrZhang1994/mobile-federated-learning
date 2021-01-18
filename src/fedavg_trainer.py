@@ -330,7 +330,7 @@ class FedAvgTrainer(object):
                     self.cycle_num = self.cycle_num+1
           
 
-    def central_train():
+    def central_train(self):
         logger.info("################global optimal weights calculation")
         model = self.model(self.args, model_name=self.args.model, output_dim=self.class_num)
         criterion = torch.nn.CrossEntropyLoss().to(self.device)
