@@ -41,13 +41,11 @@ class Client:
         else:
             optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=self.args.lr,
                                               weight_decay=self.args.wd, amsgrad=True)
-
         # initialize values
         rho, beta = None, None # initialize with null values
         # get data
         x, labels = next(iter(self.local_training_data))
         x, labels = x.to(self.device), labels.to(self.device) 
-
         # get lasts
         net.eval()
         last_w = torch.cat([param.view(-1) for param in net.parameters()]) # get last weights
@@ -68,24 +66,18 @@ class Client:
                 logger.warning("grads {} too large than weights {} or meets nan with epoch {}".format(torch.norm(grads), torch.norm(last_w), epoch))
                 return net.cpu().state_dict(), None, None, None
             optimizer.step() # updates weights
-
             loss = loss.item() # get current loss
             w = torch.cat([param.view(-1) for param in net.parameters()]) # get current w
-
             # calculate rho and update rho
             rho_tmp = abs(loss - last_loss) / torch.norm(w - last_w)
             if not rho or rho_tmp > rho:
-                rho = rho_tmp
-            
+                rho = rho_tmp   
             # calculate beta and udpate beta
             beta_tmp = torch.norm(grads - last_grads) / torch.norm(w - last_w)
             if not beta or beta_tmp > beta:
                 beta = beta_tmp
-
             # update last
-            last_loss = loss
-            last_w = w
-            last_grads = grads
+            last_loss, last_w, last_grads = loss, w, grads
             
             logger.debug('Client Index = {}\tEpoch: {}\tLoss: {:.6f}'.format(
                 self.client_idx, epoch, loss))
