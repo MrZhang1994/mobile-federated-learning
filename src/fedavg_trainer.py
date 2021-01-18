@@ -68,12 +68,13 @@ class FedAvgTrainer(object):
         else:
             self.scheduler = sch.sch_random
 
-        self.model_global = model
+        self.model = model
+        self.model_global = model(self.args, model_name=self.args.model, output_dim=self.class_num)
         self.model_global.train()
+        
         self.C3 = 0
         self.cycle_num = 0
- 
- 
+
     def setup_clients(self, train_data_local_num_dict, train_data_local_dict, test_data_local_dict):
         logger.debug("############setup_clients (START)#############")
         for client_idx in range(client_num_per_round):
@@ -84,35 +85,6 @@ class FedAvgTrainer(object):
 
 
     def train(self):
-        if self.args.method == "find_constant":
-            logger.info("################global optimal weights calculation")
-            criterion = torch.nn.CrossEntropyLoss().to(self.device)
-            self.model_global.to(self.device)
-            if self.args.client_optimizer == "sgd":
-                optimizer = torch.optim.SGD(self.model_global.parameters(), lr=self.args.lr)
-            else:
-                optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.model_global.parameters()), lr=self.args.lr,
-                                                weight_decay=self.args.wd, amsgrad=True)      
-            last_loss = 0
-            for epoch in tqdm(range(1000)):
-                for client_idx in range(self.client_num):
-                    x, labels = next(iter(self.train_data_local_dict[client_idx]))
-                    x, labels = x.to(self.device), labels.to(self.device)
-                    self.model_global.train()
-                    self.model_global.zero_grad()
-                    log_probs = self.model_global(x)
-                    loss = criterion(log_probs, labels)
-                    loss.backward()
-                    loss = loss.item()
-                    wandb.log({"training_loss": loss})
-                    if abs(last_loss - loss) < 0.001:
-                        break
-                    last_loss = loss
-                    optimizer.step()
-            w_optimal = torch.cat([param.view(-1) for param in self.model_global.parameters()]) 
-            loss_optimal = last_loss
-            # reinitialize
-            self.model_global = self.args.create_model(self.args, model_name=self.args.model, output_dim=self.class_num).to(self.device)
         """
         Global initialized values
         """
@@ -342,13 +314,14 @@ class FedAvgTrainer(object):
                 counting_days += 1
                 if counting_days % RESTART_DAYS == 0:
                     if self.args.method == "find_constant" and loss_locals:
+                        w_optimal, loss_optimal = self.central_train()
                         w = torch.cat([param.view(-1) for param in self.model_global.parameters()]) 
                         w_diff_optimal = torch.norm(w.cpu() - w_optimal.cpu())
                         logger.info("The norm of difference between w_optmal & w: {}".format(w_diff_optimal.item()))
                         logger.info("The norm of difference between loss & loss_optimal: {}".format(loss_avg - loss_optimal))
                         break
                     logger.info("################reinitialize model") 
-                    self.model_global = self.args.create_model(self.args, model_name=self.args.model, output_dim=self.class_num)
+                    self.model_global = self.model(self.args, model_name=self.args.model, output_dim=self.class_num)
                     delta, rho, beta, rho_flag, beta_flag = np.random.rand(1)[0], np.random.rand(1)[0], np.random.rand(1)[0], True, True
                 if counting_days >= DATE_LENGTH:
                     logger.info("################training restarts")
@@ -356,7 +329,40 @@ class FedAvgTrainer(object):
                     self.time_counter = 0
                     self.cycle_num = self.cycle_num+1
           
-           
+
+    def central_train():
+        logger.info("################global optimal weights calculation")
+        model = self.model(self.args, model_name=self.args.model, output_dim=self.class_num)
+        criterion = torch.nn.CrossEntropyLoss().to(self.device)
+        model.to(self.device)
+        if self.args.client_optimizer == "sgd":
+            optimizer = torch.optim.SGD(model.parameters(), lr=self.args.lr)
+        else:
+            optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=self.args.lr,
+                                            weight_decay=self.args.wd, amsgrad=True)      
+        for epoch in tqdm(range(self.args.central_round)):
+            for client_idx in range(self.client_num):
+                x, labels = next(iter(self.train_data_local_dict[client_idx]))
+                x, labels = x.to(self.device), labels.to(self.device)
+                model.train()
+                model.zero_grad()
+                log_probs = model(x)
+                loss = criterion(log_probs, labels)
+                loss.backward()
+                loss = loss.item()
+                optimizer.step()
+            wandb.log({"central_training/training_loss": loss})
+            for client_idx in range(self.client_num):
+                x, labels = next(iter(self.test_data_local_dict[client_idx]))
+                x, labels = x.to(self.device), labels.to(self.device)
+                model.eval()
+                log_probs = model(x)
+                loss = criterion(log_probs, labels).item()
+            wandb.log({"central_training/test_loss": loss})
+        w_optimal = torch.cat([param.view(-1) for param in model.parameters()]) 
+        loss_optimal = loss
+        return w_optimal, loss_optimal
+
     def tx_time(self, client_indexes):
         if not client_indexes:
             self.time_counter += 1

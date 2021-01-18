@@ -52,7 +52,8 @@ class Client:
         rho, beta = None, None # initialize with null values
         # get data
         x, labels = next(iter(self.local_training_data))
-        x, labels = x.to(self.device), labels.to(self.device)    
+        x, labels = x.to(self.device), labels.to(self.device) 
+
         # get lasts
         net.eval()
         last_w = torch.cat([param.view(-1) for param in net.parameters()]) # get last weights

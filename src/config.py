@@ -118,7 +118,7 @@ use_gpu = False      # use GPU or not
 AMEND_RATE = 1
 REG_FACTOR = 0.001
 USE_AC = 'ac' in RL_PRESET
-MEMORY_CAPACITY = 4               # size of experience pool
+MEMORY_CAPACITY = 16               # size of experience pool
 AMEND_ITER = 100 if 'amender' not in RL_PRESET else 1e12
 if 'noamender' in RL_PRESET:
     AMEND_ITER = 0

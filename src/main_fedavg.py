@@ -73,6 +73,9 @@ def add_args():
     parser.add_argument('--comm_round', type=int, default=1000,
                         help='how many round of communications we shoud use')
 
+    parser.add_argument('--central_round', type=int, default=1000,
+                        help='how many round of centralised training we shoud use')
+
     parser.add_argument('--fairness_multiplier', type=float, default=1,
                         help='the multiplier use to BETA in reward')
 
@@ -248,7 +251,9 @@ def main():
         logger.setLevel(logging.INFO)
         logger_sch.setLevel(logging.INFO)
     logger.debug("--------DEBUG enviroment start---------")
-    
+
+    # show the upate information
+    logger.info("--------global parameters setting-------")
     global_hyp = dict()
     for k, v in config.__dict__.items():
         if type(v) in [int, float, str, bool] and not k.startswith('_'):
@@ -256,9 +261,6 @@ def main():
     for k, v in args.__dict__.items():
         if type(v) in [int, float, str, bool] and not k.startswith('_'):
             global_hyp.update({k: v})
-
-    # show the upate information
-    logger.info("--------global parameters setting-------")
     logger.info(global_hyp)
 
     logger.info("---------cuda device setting-----------")
@@ -276,14 +278,6 @@ def main():
     logger.info("-------------dataset loading------------")
     dataset = load_data(args, args.dataset)
 
-    # create model.
-    # Note if the model is DNN (e.g., ResNet), the training will be very slow.
-    # In this case, please use our FedML distributed version (./fedml_experiments/distributed_fedavg)
-    logger.debug("-------------model setting-------------")
-    model = create_model(args, model_name=args.model, output_dim=dataset[-1])
-    args.create_model = create_model # contain the function of create a model.
-    logger.debug(model)
-
     # initialize the wandb.
     wandb.init(
         project="fedavg",
@@ -293,7 +287,7 @@ def main():
 
     logger.debug("------------finish setting-------------")
 
-    trainer = FedAvgTrainer(dataset, model, device, args)
+    trainer = FedAvgTrainer(dataset, create_model, device, args)
     trainer.train()
 
     wandb.save(config.trainer_csv)
