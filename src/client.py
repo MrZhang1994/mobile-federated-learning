@@ -64,7 +64,7 @@ class Client:
             # if grads meets something strange, we will terminate the training process.
             if torch.isnan(grads).sum() > 0 or torch.isnan(loss) or torch.norm(grads) > self.args.lr * THRESHOLD_GRADS_RATIO * torch.norm(last_w):
                 logger.warning("grads {} too large than weights {} or meets nan with epoch {}".format(torch.norm(grads), torch.norm(last_w), epoch))
-                return net.cpu().state_dict(), None, None, None
+                return net.cpu().state_dict(), None, None, None, None
             optimizer.step() # updates weights
             loss = loss.item() # get current loss
             w = torch.cat([param.view(-1) for param in net.parameters()]) # get current w
@@ -82,17 +82,17 @@ class Client:
             logger.debug('Client Index = {}\tEpoch: {}\tLoss: {:.6f}'.format(
                 self.client_idx, epoch, loss))
 
-        return net.cpu().state_dict(), loss, beta.item(), rho.item()
+        # get acc
+        _, predicted = torch.max(log_probs, -1)
+        correct = predicted.eq(labels).sum()
+
+        return net.cpu().state_dict(), loss, beta.item(), rho.item(), correct.item() / labels.size(0)
 
 
     def local_test(self, model_global, b_use_test_dataset=False):
         model_global.eval()
         model_global.to(self.device)
-        metrics = { 
-            'test_correct': 0, 
-            'test_loss' : 0, 
-            'test_total' : 0
-        }
+        metrics = dict()
         if b_use_test_dataset:
             test_data = self.local_test_data
         else:
@@ -106,8 +106,8 @@ class Client:
             _, predicted = torch.max(pred, -1)
             correct = predicted.eq(target).sum()
 
-            metrics['test_correct'] += correct.item()
-            metrics['test_loss'] += loss.item() * target.size(0)
-            metrics['test_total'] += target.size(0)
+            metrics['test_correct'] = correct.item()
+            metrics['test_loss'] = loss.item() * target.size(0)
+            metrics['test_total'] = target.size(0)
 
         return metrics

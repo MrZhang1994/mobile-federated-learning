@@ -267,10 +267,11 @@ def create_model(args, model_name, output_dim):
     return model
 
 
-
 def main():
     # get all the program arguments.
     args = add_args()
+    
+    # changing config.py with arguments
     config.ETA = args.lr
     config.device_No = args.gpu
     config.FAIRNESS_MULTIPLIER = args.fairness_multiplier
@@ -328,7 +329,7 @@ def main():
 
     logger.debug("------------finish setting-------------")
     trainer = FedAvgTrainer(dataset, create_model, device, args)
-    trainer.central_train()
+    trainer.train()
 
     # save files for wandb
     wandb.save(config.trainer_csv)

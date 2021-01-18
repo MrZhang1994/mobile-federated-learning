@@ -8,6 +8,7 @@ from tqdm import tqdm
 
 import torch
 import numpy as np
+import pandas as pd
 
 from client import Client
 from config import *
@@ -18,20 +19,29 @@ class FedAvgTrainer(object):
         self.device = device
         self.args = args
         
-        [client_num, _, _, _, _, train_data_local_num_dict, train_data_local_dict, test_data_local_dict, class_num] = dataset
-        # record the client number of the dataset
+        [client_num, train_data_num, _, train_data_global, _, train_data_local_num_dict, train_data_local_dict, test_data_local_dict, class_num] = dataset
+         # record the client number of the dataset
         self.client_num = client_num 
         self.class_num = class_num
-        self.invalid_datasets = dict()
 
-        self.client_list = []
+        # setup dataset
         self.train_data_local_num_dict = train_data_local_num_dict
         self.train_data_local_dict = train_data_local_dict
         self.test_data_local_dict = test_data_local_dict
+        self.train_global = train_data_global
+        self.train_global_num = train_data_num
+        if args.partition_method == "noniid":
+            self.non_iid_dataset()
+        
+        self.client_list = []
         self.setup_clients(train_data_local_num_dict, train_data_local_dict, test_data_local_dict)
-
+        
+        # initialize the recorder of invalid dataset
+        self.invalid_datasets = dict()
         # time counter starts from the first line
         self.time_counter = channel_data['Time'][0]
+        # initialize the cycle_num here
+        self.cycle_num = 0
 
         # initialize the scheduler function
         if self.args.method == "sch_pn_method_1" or self.args.method == "sch_pn_method_1_empty":
@@ -66,9 +76,6 @@ class FedAvgTrainer(object):
         self.model = model
         self.model_global = model(self.args, model_name=self.args.model, output_dim=self.class_num)
         self.model_global.train()
-        
-        self.C3 = 0
-        self.cycle_num = 0
 
     def setup_clients(self, train_data_local_num_dict, train_data_local_dict, test_data_local_dict):
         logger.debug("############setup_clients (START)#############")
@@ -85,6 +92,9 @@ class FedAvgTrainer(object):
         """
         # maintain a lst for local losses
         local_loss_lst = np.zeros((1, client_num_in_total)) 
+        # maintain a lst for local acc
+        _, dataset_acc_lst = self.local_test_on_all_clients(self.model_global, 0, True, False)
+        local_acc_lst = dataset_acc_lst[np.arange(client_num_in_total) % self.client_num]
         # counting days
         counting_days, reward = 0, 0
         # initialize values for calculating iteration num
@@ -93,7 +103,7 @@ class FedAvgTrainer(object):
         local_itr_lst = torch.zeros(self.args.comm_round, int(client_num_in_total)).to(self.device)  # historical local iterations.
         G_mat = torch.zeros(int(client_num_in_total)).to(self.device) # initial the value of G with zero
         # if weight size is larger than THRESHOLD_WEIGHT_SIZE we will use a simpler method to calculate FPF
-        weight_size = sum([self.model_global.state_dict()[para].numpy().ravel().shape[0] for para in self.model_global.state_dict().keys()])        
+        weight_size = sum([self.model_global.cpu().state_dict()[para].numpy().ravel().shape[0] for para in self.model_global.state_dict().keys()])        
         if weight_size < THRESHOLD_WEIGHT_SIZE:
             A_mat = torch.ones(weight_size).to(self.device) # initial the value of A with ones.
             local_w_diffs = torch.zeros((int(client_num_in_total), weight_size)).to(self.device)
@@ -120,7 +130,6 @@ class FedAvgTrainer(object):
                     client_indexes, local_itr = self.scheduler.sch_pn_empty(round_idx, self.time_counter)
                 else:
                     client_indexes, local_itr, (reward, loss_a, loss_c) = self.scheduler.sch_pn(round_idx, self.time_counter, loss_locals, FPF2_idx_lst, local_loss_lst, )
-
             else:
                 if self.args.method == "sch_loss":
                     if round_idx == 0:
@@ -146,7 +155,7 @@ class FedAvgTrainer(object):
             # store the last model's training parameters.
             last_w = copy.deepcopy(self.model_global.cpu().state_dict())
             # local Initialization
-            w_locals, loss_locals, loss_list, beta_locals, rho_locals = [], [], [], [], []
+            w_locals, loss_locals, beta_locals, rho_locals = [], [], [], []
             """
             for scalability: following the original FedAvg algorithm, we uniformly sample a fraction of clients in each round.
             Instead of changing the 'Client' instances, our implementation keeps the 'Client' instances and then updates their local dataset 
@@ -168,14 +177,13 @@ class FedAvgTrainer(object):
                     # train on new dataset
                     # add a new parameter "local_itr" to the funciton "client.train()"
                     # add a new return value "time_interval" which is the time consumed for training model in client.
-                    w, loss, local_beta, local_rho = client.train(net=copy.deepcopy(self.model_global).to(self.device), local_iteration = local_itr)
-                    if loss != None and local_beta != None and local_rho != None:
+                    w, loss, local_beta, local_rho, local_acc = client.train(net=copy.deepcopy(self.model_global).to(self.device), local_iteration = local_itr)
+                    if loss != None and local_beta != None and local_rho != None and local_acc != None:
                         if dataset_idx != current_idx:
                             self.invalid_datasets[dataset_idx] = current_idx
                         break
                     current_idx = np.random.randint(self.class_num)
                     logger.warning("changing dataset for {} to {}".format(client_idx, current_idx))
-
                 # record current w into w_locals
                 w_locals.append((client.get_sample_number(), copy.deepcopy(w)))
                 # record current loss into loss_locals
@@ -189,10 +197,10 @@ class FedAvgTrainer(object):
                 # update local_w_diffs
                 if weight_size < THRESHOLD_WEIGHT_SIZE:
                     local_w_diffs[client_idx, :] = torch.cat([w[para].reshape((-1, )) - last_w[para].reshape((-1, )) for para in self.model_global.state_dict().keys()]).to(self.device)
-                
+                # update local_acc_lst
+                local_acc_lst[client_idx] = local_acc
                 # loss 
                 logger.info('Client {:3d}, loss {:.3f}'.format(client_idx, loss))
-                loss_list.append(loss)
 
             # update global weights
             w_glob = self.aggregate(w_locals)
@@ -204,7 +212,7 @@ class FedAvgTrainer(object):
                 self.time_counter += math.ceil(LOCAL_TRAINING_TIME)
             logger.debug("time_counter after training: {}".format(self.time_counter))
             
-            trainer_csv_line += [self.time_counter-trainer_csv_line[1], np.var(local_loss_lst), str(loss_list)]
+            trainer_csv_line += [self.time_counter-trainer_csv_line[1], np.var(local_loss_lst), str(loss_locals), np.var(loss_locals), np.var(local_acc_lst)]
             
             # print loss
             if not loss_locals:
@@ -217,30 +225,29 @@ class FedAvgTrainer(object):
 
             # local test on all client.
             if round_idx % self.args.frequency_of_the_test == 0 or round_idx == self.args.comm_round - 1:
-                test_acc = self.local_test_on_all_clients(self.model_global, round_idx, EVAL_ON_TRAIN)
+                test_acc, _ = self.local_test_on_all_clients(self.model_global, round_idx, EVAL_ON_TRAIN, True)
                 trainer_csv_line.append(test_acc)
             
             # write headers for csv
             with open(trainer_csv, mode = "a+", encoding='utf-8', newline='') as file:
                 csv_writer = csv.writer(file)
                 if round_idx == 0:
-                    csv_writer.writerow(['round index', 'time counter', 'client index', 'train time', 'fairness', 'local loss', 'global loss', 'test accuracy'])
+                    csv_writer.writerow(['round index', 'time counter', 'client index', 'train time', 'fairness', 
+                                        'local loss', "local loss var", "local acc var", 'global loss', 'test accuracy'])
                 csv_writer.writerow(trainer_csv_line)
                 file.flush()  
 
             # log on wandb
             wandb.log({
-                "reward": reward,
-                "loss_a": loss_a,
-                "loss_c": loss_c,
-                "round": round_idx,
-                "beta": beta,
-                "rho": rho,
-                "delta": delta,
+                "reward": reward, "loss_a": loss_a,
+                "loss_c": loss_c, "round": round_idx,
+                "beta": beta, "rho": rho, "delta": delta,
                 "cum_time": trainer_csv_line[1]+self.cycle_num*59361,
                 "local_itr": local_itr,
                 "client_num": len(client_indexes),
-                "C3": self.C3
+                "C3": (rho*delta)/beta,
+                "local_loss_var": np.var(loss_locals),
+                "local_ass_var": np.var(local_acc_lst)
             })
 
             # update FPF index list
@@ -279,8 +286,6 @@ class FedAvgTrainer(object):
                 if beta_tmp > beta or beta_flag:
                     if (not np.isnan(beta_tmp) and not np.isinf(beta_tmp)) and beta_tmp < THRESHOLD_BETA:
                         beta, beta_flag = beta_tmp, False
-
-            self.C3 = (rho*delta)/beta
             
             if self.args.method == "sch_pn_method_1" or self.args.method == "sch_pn_method_1_empty":
                 self.scheduler.calculate_itr_method_1(delta)
@@ -351,7 +356,19 @@ class FedAvgTrainer(object):
         loss_optimal = loss
         return w_optimal, loss_optimal
 
-    # def non_iid_dataset(self, dataset)
+    def non_iid_dataset(self):
+        """
+        changing self.train_data_local_dict to non-i.i.d. dataset.
+        And change self.train_data_local_num_dict correspondingly.
+        """
+        data, labels = self.train_global[0][0], self.train_global[0][1] # read the tensor from train_global.
+        data_shape = data.shape # store the shape of data.
+        data = data.view(data.shape[0], -1)
+        full_df = 
+        print(data.shape)
+        exit(-1)
+
+        pass
 
     def tx_time(self, client_indexes):
         if not client_indexes:
@@ -390,7 +407,7 @@ class FedAvgTrainer(object):
         return averaged_params
 
 
-    def local_test_on_all_clients(self, model_global, round_idx, eval_on_train=False):
+    def local_test_on_all_clients(self, model_global, round_idx, eval_on_train=False, if_log=True):
         logger.info("################local_test_on_all_clients : {}".format(round_idx))
 
         train_metrics = {
@@ -417,6 +434,12 @@ class FedAvgTrainer(object):
             client.update_local_dataset(client_idx, self.train_data_local_dict[client_idx],
                                         self.test_data_local_dict[client_idx],
                                         self.train_data_local_num_dict[client_idx])
+
+            # test data
+            test_local_metrics = client.local_test(model_global, True)
+            test_metrics['num_samples'].append(copy.deepcopy(test_local_metrics['test_total']))
+            test_metrics['num_correct'].append(copy.deepcopy(test_local_metrics['test_correct']))
+            test_metrics['losses'].append(copy.deepcopy(test_local_metrics['test_loss']))
             # train data
             if eval_on_train:
                 train_local_metrics = client.local_test(model_global, False)
@@ -424,38 +447,29 @@ class FedAvgTrainer(object):
                 train_metrics['num_correct'].append(copy.deepcopy(train_local_metrics['test_correct']))
                 train_metrics['losses'].append(copy.deepcopy(train_local_metrics['test_loss']))
 
-            # test data
-            test_local_metrics = client.local_test(model_global, True)
-            test_metrics['num_samples'].append(copy.deepcopy(test_local_metrics['test_total']))
-            test_metrics['num_correct'].append(copy.deepcopy(test_local_metrics['test_correct']))
-            test_metrics['losses'].append(copy.deepcopy(test_local_metrics['test_loss']))
-
-        if eval_on_train:
-            # test on training dataset
-            train_acc = sum(train_metrics['num_correct']) / sum(train_metrics['num_samples'])
-            train_loss = sum(train_metrics['losses']) / sum(train_metrics['num_samples'])
-
-            stats = {'training_acc': train_acc, 'training_loss': train_loss}
-            wandb.log({"Train/Acc": train_acc, "round": round_idx})
-            wandb.log({"Train/Loss": train_loss, "round": round_idx})
-            logger.info(stats)
-
         # test on test dataset
         test_acc = sum(test_metrics['num_correct']) / sum(test_metrics['num_samples'])
         test_loss = sum(test_metrics['losses']) / sum(test_metrics['num_samples'])
-
-        test_loss_var = np.var(test_metrics['losses'])
-        test_acc_var = np.var(np.array(test_metrics['num_correct']) / np.array(test_metrics['num_samples']))
-
         stats = {
             "Test/Acc": test_acc,
             "Test/Loss": test_loss,
-            "Test/AccVar": test_acc_var,
-            "Test/LossVar": test_loss_var,
-            "round": round_idx,
-            "cum_time": self.time_counter+self.cycle_num*59361,
+            "Test/round": round_idx,
+            "Test/cum_time": self.time_counter+self.cycle_num*59361,
         }
-        logger.info(stats)
-        wandb.log(stats)
+        # test on training dataset
+        if eval_on_train:
+            train_acc = sum(train_metrics['num_correct']) / sum(train_metrics['num_samples'])
+            train_loss = sum(train_metrics['losses']) / sum(train_metrics['num_samples'])
+            stats.update({
+                'Train/Acc': train_acc, 
+                'Train/Loss': train_loss,
+                "Train/round": round_idx,
+                "Train/cum_time": self.time_counter+self.cycle_num*59361,
+            })
+            return test_acc, np.array(train_metrics['num_correct']) / np.array(train_metrics['num_samples'])
 
-        return test_acc
+        if if_log:
+            logger.info(stats)
+            wandb.log(stats)
+
+        return test_acc, None
