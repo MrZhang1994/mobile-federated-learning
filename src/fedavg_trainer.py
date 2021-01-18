@@ -18,14 +18,9 @@ class FedAvgTrainer(object):
         self.device = device
         self.args = args
         
-        [client_num, train_data_num, test_data_num, train_data_global, test_data_global,
-         train_data_local_num_dict, train_data_local_dict, test_data_local_dict, class_num] = dataset
+        [client_num, _, _, _, _, train_data_local_num_dict, train_data_local_dict, test_data_local_dict, class_num] = dataset
         # record the client number of the dataset
         self.client_num = client_num 
-        self.train_global = train_data_global
-        self.test_global = test_data_global
-        self.train_data_num_in_total = train_data_num
-        self.test_data_num_in_total = test_data_num
         self.class_num = class_num
         self.invalid_datasets = dict()
 
@@ -340,7 +335,7 @@ class FedAvgTrainer(object):
         else:
             optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=self.args.lr,
                                             weight_decay=self.args.wd, amsgrad=True)      
-        for epoch in tqdm(range(self.args.central_round)):
+        for _ in tqdm(range(self.args.central_round)):
             for client_idx in range(self.client_num):
                 x, labels = next(iter(self.train_data_local_dict[client_idx]))
                 x, labels = x.to(self.device), labels.to(self.device)
@@ -351,17 +346,12 @@ class FedAvgTrainer(object):
                 loss.backward()
                 loss = loss.item()
                 optimizer.step()
-            wandb.log({"central_training/training_loss": loss})
-            for client_idx in range(self.client_num):
-                x, labels = next(iter(self.test_data_local_dict[client_idx]))
-                x, labels = x.to(self.device), labels.to(self.device)
-                model.eval()
-                log_probs = model(x)
-                loss = criterion(log_probs, labels).item()
-            wandb.log({"central_training/test_loss": loss})
+            wandb.log({"central_training/loss": loss})
         w_optimal = torch.cat([param.view(-1) for param in model.parameters()]) 
         loss_optimal = loss
         return w_optimal, loss_optimal
+
+    # def non_iid_dataset(self, dataset)
 
     def tx_time(self, client_indexes):
         if not client_indexes:

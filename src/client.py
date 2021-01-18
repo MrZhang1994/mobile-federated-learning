@@ -17,12 +17,6 @@ class Client:
         self.args = args
         self.device = device
 
-        '''
-        stackoverflow_lr is the task of multi-label classification
-        please refer to following links for detailed explainations on cross-entropy and corresponding implementation of tff research:
-        https://towardsdatascience.com/cross-entropy-for-classification-d98e7f974451
-        https://github.com/google-research/federated/blob/49a43456aa5eaee3e1749855eed89c0087983541/optimization/stackoverflow_lr/federated_stackoverflow_lr.py#L131
-        '''
         if self.args.dataset == "stackoverflow_lr":
             self.criterion = nn.BCELoss(reduction = 'sum').to(device)
         else:

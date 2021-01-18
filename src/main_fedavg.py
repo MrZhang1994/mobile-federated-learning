@@ -74,7 +74,7 @@ def add_args():
     parser.add_argument('--comm_round', type=int, default=1000,
                         help='how many round of communications we shoud use')
 
-    parser.add_argument('--central_round', type=int, default=1000,
+    parser.add_argument('--central_round', type=int, default=100,
                         help='how many round of centralised training we shoud use')
 
     parser.add_argument('--fairness_multiplier', type=float, default=1,
@@ -238,28 +238,27 @@ def create_model(args, model_name, output_dim):
     output_dim: the dimension of the output of the model.
     return: model.
     """
-    logger.debug("create_model. model_name = %s, output_dim = %s" % (model_name, output_dim))
     model = None
     if model_name == "lr" and args.dataset == "mnist":
-        logger.info("LogisticRegression + MNIST")
+        logger.debug("LogisticRegression + MNIST")
         model = LogisticRegression(28 * 28, output_dim)
     elif model_name == "cnn" and args.dataset == "femnist":
-        logger.info("CNN + FederatedEMNIST")
+        logger.debug("CNN + FederatedEMNIST")
         model = CNN_DropOut(False)
     elif model_name == "resnet18_gn" and args.dataset == "fed_cifar100":
-        logger.info("ResNet18_GN + Federated_CIFAR100")
+        logger.debug("ResNet18_GN + Federated_CIFAR100")
         model = resnet18()
     elif model_name == "rnn" and args.dataset == "shakespeare":
-        logger.info("RNN + shakespeare")
+        logger.debug("RNN + shakespeare")
         model = RNN_OriginalFedAvg()
     elif model_name == "rnn" and args.dataset == "fed_shakespeare":
-        logger.info("RNN + fed_shakespeare")
+        logger.debug("RNN + fed_shakespeare")
         model = RNN_OriginalFedAvg()
     elif model_name == "lr" and args.dataset == "stackoverflow_lr":
-        logger.info("lr + stackoverflow_lr")
+        logger.debug("lr + stackoverflow_lr")
         model = LogisticRegression(10000, output_dim)
     elif model_name == "rnn" and args.dataset == "stackoverflow_nwp":
-        logger.info("RNN + stackoverflow_nwp")
+        logger.debug("RNN + stackoverflow_nwp")
         model = RNN_StackOverFlow()
     elif model_name == "resnet56":
         model = resnet56(class_num=output_dim)
@@ -317,6 +316,9 @@ def main():
     logger.info("-------------dataset loading------------")
     dataset = load_data(args, args.dataset)
 
+    logger.info("-------------model setting--------------")
+    logger.info("create_model. model_name = %s, output_dim = %s" % (args.model, dataset[-1]))
+    
     # initialize the wandb.
     wandb.init(
         project="fedavg",
@@ -325,10 +327,10 @@ def main():
     )
 
     logger.debug("------------finish setting-------------")
-
     trainer = FedAvgTrainer(dataset, create_model, device, args)
-    trainer.train()
+    trainer.central_train()
 
+    # save files for wandb
     wandb.save(config.trainer_csv)
     wandb.save(config.scheduler_csv)
     subprocess.run(['gzip', config.FPF_csv])
