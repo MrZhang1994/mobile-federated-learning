@@ -156,6 +156,8 @@ class PG(object):
         # # Amender
         if amender:
             pointer = Amender(pointer, state)
+            with torch.no_grad():
+                _, hidden_states = self.Actor(state_tensor, torch.tensor([pointer]))
         # ================================================================================================      
         return pointer, hidden_states
 
