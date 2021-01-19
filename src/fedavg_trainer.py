@@ -249,7 +249,7 @@ class FedAvgTrainer(object):
                 "client_num": len(client_indexes),
                 "C3": (rho*delta)/beta,
                 "local_loss_var": np.var(loss_locals),
-                "local_ass_var": np.var(local_acc_lst)
+                "local_acc_var": np.var(local_acc_lst)
             }
             # update FPF index list
             if weight_size < THRESHOLD_WEIGHT_SIZE:
@@ -481,8 +481,8 @@ class FedAvgTrainer(object):
         stats = {
             "Test/Acc": test_acc,
             "Test/Loss": test_loss,
-            "Test/round": round_idx,
-            "Test/cum_time": self.time_counter+self.cycle_num*59361,
+            "round": round_idx,
+            "cum_time": self.time_counter+self.cycle_num*59361,
         }
         # test on training dataset
         if eval_on_train:
@@ -491,9 +491,12 @@ class FedAvgTrainer(object):
             stats.update({
                 'Train/Acc': train_acc, 
                 'Train/Loss': train_loss,
-                "Train/round": round_idx,
-                "Train/cum_time": self.time_counter+self.cycle_num*59361,
+                "round": round_idx,
+                "cum_time": self.time_counter+self.cycle_num*59361,
             })
+            if if_log:
+                logger.info(stats)
+                wandb.log(stats)
             return test_acc, np.array(train_metrics['num_correct']) / np.array(train_metrics['num_samples'])
 
         if if_log:
