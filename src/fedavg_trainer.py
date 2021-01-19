@@ -115,6 +115,7 @@ class FedAvgTrainer(object):
         starts training, entering the loop of command round.
         """
         Inform = {}
+        traffic = 0
         for round_idx in range(self.args.comm_round):
             logger.info("################Communication round : {}".format(round_idx))
             # set the time_counter 
@@ -146,8 +147,9 @@ class FedAvgTrainer(object):
                     file.flush()
             logger.info("client_indexes = " + str(client_indexes))
             
+            traffic += len(client_indexes)
             # write one line to trainer_csv
-            trainer_csv_line = [round_idx, self.time_counter, str(client_indexes)]
+            trainer_csv_line = [round_idx, self.time_counter, str(client_indexes), traffic]
 
             # contribute to time counter
             self.tx_time(list(client_indexes)) # transmit time
@@ -232,7 +234,7 @@ class FedAvgTrainer(object):
             with open(trainer_csv, mode = "a+", encoding='utf-8', newline='') as file:
                 csv_writer = csv.writer(file)
                 if round_idx == 0:
-                    csv_writer.writerow(['round index', 'time counter', 'client index', 'train time', 'fairness', 
+                    csv_writer.writerow(['round index', 'time counter', 'client index', 'traffic', 'train time', 'fairness', 
                                         'local loss', "local loss var", "local acc var", 'global loss', 'test accuracy'])
                 csv_writer.writerow(trainer_csv_line)
                 file.flush()  
@@ -243,6 +245,7 @@ class FedAvgTrainer(object):
             Inform = {
                 "reward": reward, "loss_a": loss_a,
                 "loss_c": loss_c, "round": round_idx,
+                "traffic": traffic,
                 "beta": beta, "rho": rho, "delta": delta,
                 "cum_time": trainer_csv_line[1]+self.cycle_num*59361,
                 "local_itr": local_itr,
@@ -324,6 +327,7 @@ class FedAvgTrainer(object):
                     logger.info("################reinitialize model") 
                     self.model_global = self.model(self.args, model_name=self.args.model, output_dim=self.class_num)
                     delta, rho, beta, rho_flag, beta_flag = np.random.rand(1)[0], np.random.rand(1)[0], np.random.rand(1)[0], True, True
+                    traffic = 0
                 if counting_days >= DATE_LENGTH:
                     logger.info("################training restarts")
                     counting_days = 0
