@@ -88,6 +88,8 @@ THRESHOLD_BETA = 1000
 THRESHOLD_GRADS_RATIO = 50
 # set the contant for time of training.
 LOCAL_TRAINING_TIME = 1
+# set the class num for each local dataset
+CLASS_NUM = 3
 
 # ===============================
 # set hyperparameters for calculate iteration num

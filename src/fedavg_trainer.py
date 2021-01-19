@@ -31,6 +31,7 @@ class FedAvgTrainer(object):
         self.train_global = train_data_global
         self.train_global_num = train_data_num
         if args.partition_method == "noniid":
+            logger.info("-----------non-i.i.d transform----------")
             self.non_iid_dataset()
         
         self.client_list = []
@@ -362,13 +363,37 @@ class FedAvgTrainer(object):
         And change self.train_data_local_num_dict correspondingly.
         """
         data, labels = self.train_global[0][0], self.train_global[0][1] # read the tensor from train_global.
-        data_shape = data.shape # store the shape of data.
+        data_shape = list(data.size())
+        # transform shape
         data = data.view(data.shape[0], -1)
-        full_df = 
-        print(data.shape)
+        labels = labels.view(labels.shape[0], -1)
+        # get full_df
+        full_df = pd.DataFrame(np.concatenate((data.numpy(), labels.numpy()), axis=1))
+        # distribute to each clients 
+        for client_idx in tqdm(range(self.client_num)):
+            # get selected classes
+            try:
+                selected_classes = set(list(np.random.choice(list(set(full_df.iloc[:, -1])), CLASS_NUM)))
+            except:
+                selected_classes = set(full_df.iloc[:, -1])
+            # got valid data 
+            valid_data = full_df[full_df.iloc[:, -1].isin(selected_classes)].iloc[:, 0:-1]
+            # get number of data on the local client
+            local_num = self.train_data_local_num_dict[client_idx]
+            # got selected data # remember to shuffle the data
+            try:
+                selected_data = valid_data.sample(frac=1, random_state = self.args.seed)[0:local_num]
+            except:
+                selected_data = valid_data.sample(frac=1, random_state = self.args.seed)
+                self.train_data_local_dict[client_idx] = len(selected_data)
+            # update the data shape
+            data_shape[0] = local_num 
+            # update the local client data
+            self.train_data_local_dict[client_idx] = torch.from_numpy(selected_data.values).view(data_shape)
+            # remove the data from the full_df
+            full_df = full_df.drop(index=selected_data.index)
+            
         exit(-1)
-
-        pass
 
     def tx_time(self, client_indexes):
         if not client_indexes:
