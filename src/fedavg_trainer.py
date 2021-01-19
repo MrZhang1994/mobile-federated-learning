@@ -19,21 +19,19 @@ class FedAvgTrainer(object):
         self.device = device
         self.args = args
         
-        [client_num, train_data_num, _, train_data_global, _, train_data_local_num_dict, train_data_local_dict, test_data_local_dict, class_num] = dataset
+        [client_num, _, _, train_data_global, _, train_data_local_num_dict, train_data_local_dict, test_data_local_dict, class_num] = dataset
          # record the client number of the dataset
         self.client_num = client_num 
         self.class_num = class_num
 
         # setup dataset
         self.train_data_local_num_dict = train_data_local_num_dict
-        self.train_data_local_dict = train_data_local_dict
         self.test_data_local_dict = test_data_local_dict
-        self.train_global = train_data_global
-        self.train_global_num = train_data_num
         if args.partition_method == "noniid":
             logger.info("-----------non-i.i.d transform----------")
-            self.non_iid_dataset()
-        
+            self.train_data_local_dict = self.non_iid_dataset(train_data_global)
+        else:
+            self.train_data_local_dict = train_data_local_dict
         self.client_list = []
         self.setup_clients(train_data_local_num_dict, train_data_local_dict, test_data_local_dict)
         
@@ -357,19 +355,20 @@ class FedAvgTrainer(object):
         loss_optimal = loss
         return w_optimal, loss_optimal
 
-    def non_iid_dataset(self):
+    def non_iid_dataset(self, train_global):
         """
         changing self.train_data_local_dict to non-i.i.d. dataset.
         And change self.train_data_local_num_dict correspondingly.
         """
-        data, labels = self.train_global[0][0], self.train_global[0][1] # read the tensor from train_global.
+        data, labels = train_global[0][0], train_global[0][1] # read the tensor from train_global.
         data_shape = list(data.size())
         # transform shape
         data = data.view(data.shape[0], -1)
         labels = labels.view(labels.shape[0], -1)
         # get full_df
-        full_df = pd.DataFrame(np.concatenate((data.numpy(), labels.numpy()), axis=1))
+        full_df = pd.DataFrame(np.concatenate((data.numpy(), labels.numpy()), axis=1)).sample(frac=1, random_state=self.args.seed)
         # distribute to each clients 
+        train_data_local_dict = dict()
         for client_idx in tqdm(range(self.client_num)):
             # get selected classes
             try:
@@ -377,23 +376,25 @@ class FedAvgTrainer(object):
             except:
                 selected_classes = set(full_df.iloc[:, -1])
             # got valid data 
-            valid_data = full_df[full_df.iloc[:, -1].isin(selected_classes)].iloc[:, 0:-1]
+            valid_data = full_df[full_df.iloc[:, -1].isin(selected_classes)]
             # get number of data on the local client
             local_num = self.train_data_local_num_dict[client_idx]
             # got selected data # remember to shuffle the data
             try:
-                selected_data = valid_data.sample(frac=1, random_state = self.args.seed)[0:local_num]
+                selected_data = valid_data[0:local_num]
             except:
-                selected_data = valid_data.sample(frac=1, random_state = self.args.seed)
+                selected_data = valid_data
                 self.train_data_local_dict[client_idx] = len(selected_data)
             # update the data shape
             data_shape[0] = local_num 
             # update the local client data
-            self.train_data_local_dict[client_idx] = torch.from_numpy(selected_data.values).view(data_shape)
+            new_data = torch.from_numpy(selected_data.iloc[:, 0:-1].values).view(data_shape)
+            new_labels = torch.from_numpy(selected_data.iloc[:, -1].values)
+            train_data_local_dict[client_idx] = [(new_data, new_labels)]
             # remove the data from the full_df
             full_df = full_df.drop(index=selected_data.index)
-            
-        exit(-1)
+        
+        return train_data_local_dict
 
     def tx_time(self, client_indexes):
         if not client_indexes:
