@@ -114,6 +114,7 @@ class FedAvgTrainer(object):
         """
         starts training, entering the loop of command round.
         """
+        Inform = {}
         for round_idx in range(self.args.comm_round):
             logger.info("################Communication round : {}".format(round_idx))
             # set the time_counter 
@@ -237,7 +238,9 @@ class FedAvgTrainer(object):
                 file.flush()  
 
             # log on wandb
-            wandb.log({
+            Inform["reward"] = reward
+            wandb.log(Inform)
+            Inform = {
                 "reward": reward, "loss_a": loss_a,
                 "loss_c": loss_c, "round": round_idx,
                 "beta": beta, "rho": rho, "delta": delta,
@@ -247,8 +250,7 @@ class FedAvgTrainer(object):
                 "C3": (rho*delta)/beta,
                 "local_loss_var": np.var(loss_locals),
                 "local_ass_var": np.var(local_acc_lst)
-            })
-
+            }
             # update FPF index list
             if weight_size < THRESHOLD_WEIGHT_SIZE:
                 FPF2_idx_lst = torch.norm(local_w_diffs * A_mat, dim = 1) / G_mat
