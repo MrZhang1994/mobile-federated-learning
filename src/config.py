@@ -121,9 +121,10 @@ AMEND_RATE = 1
 REG_FACTOR = 0.001
 USE_AC = 'ac' in RL_PRESET
 MEMORY_CAPACITY = 16               # size of experience pool
-AMEND_ITER = 100 if 'amender' not in RL_PRESET else 1e12
-if 'noamender' in RL_PRESET:
-    AMEND_ITER = 0
+# AMEND_ITER = 100 if 'amender' not in RL_PRESET else 1e12
+# if 'noamender' in RL_PRESET:
+#     AMEND_ITER = 0
+AMEND_ITER = 100
 RL_UNIFORM = 'random' in RL_PRESET
 DONT_TRAIN = 'random' in RL_PRESET or 'baseline' in RL_PRESET
 

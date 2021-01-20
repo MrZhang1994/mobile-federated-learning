@@ -31,18 +31,23 @@ def Amender(pointer, state):
     # print(pointer)
     channel_state = state[0, :, 0]
     channel_state_avg = np.mean(channel_state)
-    amended_pointer = copy.deepcopy(pointer)
-    if type(amended_pointer) == np.ndarray:
-        amended_pointer = amended_pointer.tolist()
     # amended_pointer = []
     # if len(pointer)>0:
     #     for i in range(len(pointer)):
     #         amended_pointer.append(pointer[i])
+
+    # amended_pointer = copy.deepcopy(pointer)
+    # if type(amended_pointer) == np.ndarray:
+    #     amended_pointer = amended_pointer.tolist()
+    amended_pointer = []
     for i in range(len(channel_state)):
-        if (channel_state[i] >= channel_state_avg) and (i not in pointer) and (random.random()<AMEND_RATE):
+        if channel_state[i] >= channel_state_avg:
             amended_pointer.append(i)
-        elif (channel_state[i] < channel_state_avg) and (i in pointer) and (random.random()<AMEND_RATE):
-            amended_pointer.remove(i)
+        # if (channel_state[i] >= channel_state_avg) and (i not in pointer) and (random.random()<AMEND_RATE):
+        #     amended_pointer.append(i)
+        # elif (channel_state[i] < channel_state_avg) and (i in pointer) and (random.random()<AMEND_RATE):
+        #     amended_pointer.remove(i)
+
     return amended_pointer
 
 class ANetProb(nn.Module):
@@ -156,8 +161,6 @@ class PG(object):
         # # Amender
         if amender:
             pointer = Amender(pointer, state)
-            with torch.no_grad():
-                _, hidden_states = self.Actor(state_tensor, torch.tensor([pointer]))
         # ================================================================================================      
         return pointer, hidden_states
 

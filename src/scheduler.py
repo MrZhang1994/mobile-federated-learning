@@ -39,6 +39,12 @@ class Reward:
         self.F_r_last = 0
         self.FAIRNESS_MULTIPLIER = config.FAIRNESS_MULTIPLIER
 
+    def value_map(self, x):
+        if x >= 0:
+            return math.log(x+1, 10)
+        else:
+            return -math.log(-x+1, 10)
+
     def calculate_reward(self, loss_locals, selection, FPF, time_length):
         """
         loss_local: 1*M array
@@ -49,15 +55,17 @@ class Reward:
         if np.sum(selection) == 0:
             return 0
         ALPHA = 10000
-        BETA = 100*self.FAIRNESS_MULTIPLIER
+        BETA = 10*self.FAIRNESS_MULTIPLIER
         M = len(loss_locals[0])
 
         self.F_r = np.matmul(selection,loss_locals.T)/(np.sum(selection))
         self.F_r = float(self.F_r)
 
-        efficiency_inc = (self.F_r_last-self.F_r)/(time_length*self.F_r)
-        fairness_inc = float(np.matmul(FPF,(selection.T))/np.sum(selection)-np.sum(FPF)/M)
-        # fairness_inc = math.log(float(np.matmul(FPF,(selection.T))/np.sum(selection)-np.sum(FPF)/M)+1) # use ln(x+1) to process fairness
+        # efficiency_inc = (self.F_r_last-self.F_r)/(time_length*self.F_r)
+        efficiency_inc = (self.F_r_last-self.F_r)/time_length
+        fairness_inc = self.value_map(float(np.matmul(FPF,(selection.T))/np.sum(selection)-np.sum(FPF)/M))
+        # fairness_inc = float(np.matmul(FPF,(selection.T))/np.sum(selection)-np.sum(FPF)/M)
+        
         Reward = ALPHA*efficiency_inc+BETA*fairness_inc
         self.F_r_last = self.F_r
 
@@ -110,6 +118,11 @@ class Scheduler_PN_method_1:
         self.delta_min = 9999999999999
         self.itr = 3
 
+        self.state_last_stored = None
+        self.action_last_stored = None
+        self.state_stored = None
+    
+
     def calculate_itr_method_1(self, delta):
         if delta>self.delta_max:
             self.delta_max = delta
@@ -148,7 +161,7 @@ class Scheduler_PN_method_1:
             if round_idx == 0:
                 csv_writer.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'reward', 'loss_a', 'loss_c'])
             csv_writer.writerow([time_counter, str(self.available_car[0].tolist()),\
-                                    str(state[0].tolist()), str(pointer),\
+                                    str(state[0, :, 0].tolist()), str(pointer),\
                                     str(client_indexes), local_itr])
             file.flush()
         return client_indexes, local_itr        
@@ -204,18 +217,30 @@ class Scheduler_PN_method_1:
         # del available_car_last
         # ================================================================================================
         # train agent
-        if reward <= 10000 and reward >= -10000:
-            self.agent.store_transition(self.state_last, self.action_last, [reward], state)
+        if reward <= 10000 and reward >= -1000 and self.state_last_stored != None:
+            self.agent.store_transition(self.state_last_stored, self.action_last_stored, [reward], self.state_stored)
+        self.state_last_stored = self.state_last
+        self.action_last_stored = self.action_last
+        self.state_stored = state
+
+
+
         loss = [0, 0]
         if self.agent.memory:
             loss_a, td_error = self.agent.learn()
             loss = [loss_a, td_error]
         # ================================================================================================
         # produce action and mes
-        if round_idx < config.AMEND_ITER:
-            pointer, hidden_states = self.agent.choose_action_withAmender(state)
-        else:
-            pointer, hidden_states = self.agent.choose_action(state)
+        # if round_idx < config.AMEND_ITER:
+        #     pointer, hidden_states = self.agent.choose_action_withAmender(state)
+        # else:
+        #     pointer, hidden_states = self.agent.choose_action(state)
+        # if time_counter < 9000:
+        #     pointer, hidden_states = self.agent.choose_action_withAmender(state)
+        # else:
+        #     pointer, hidden_states = self.agent.choose_action(state)
+        pointer, hidden_states = self.agent.choose_action(state)
+
 
         client_indexes = []
         if len(pointer) != 0:
@@ -234,7 +259,7 @@ class Scheduler_PN_method_1:
             if round_idx == 0:
                 csv_writer.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'reward', 'loss_a', 'loss_c'])
             csv_writer.writerow([time_counter, str(self.available_car[0].tolist()),\
-                                    str(state[0].tolist()), str(pointer),\
+                                    str(state[0, :, 0].tolist()), str(pointer),\
                                     str(client_indexes), local_itr, reward]+loss)
             file.flush()
         return client_indexes, local_itr, (reward, *loss)
@@ -304,7 +329,7 @@ class Scheduler_PN_method_2:
             if round_idx == 0:
                 csv_writer.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'reward', 'loss_a', 'loss_c'])
             csv_writer.writerow([time_counter, str(self.available_car[0].tolist()),\
-                                    str(state[0].tolist()), str(pointer),\
+                                    str(state[0, :, 0].tolist()), str(pointer),\
                                     str(client_indexes), local_itr])
             file.flush()
         return client_indexes, local_itr        
@@ -360,17 +385,23 @@ class Scheduler_PN_method_2:
         # del available_car_last
         # ================================================================================================
         # train agent
-        self.agent.store_transition(self.state_last, self.action_last, [reward], state)
+        if reward <= 10000 and reward >= -1000:
+            self.agent.store_transition(self.state_last, self.action_last, [reward], state)
         loss = [0, 0]
         if self.agent.memory:
             loss_a, td_error = self.agent.learn()
             loss = [loss_a, td_error]
         # ================================================================================================
         # produce action and mes
-        if round_idx < config.AMEND_ITER:
-            pointer, hidden_states = self.agent.choose_action_withAmender(state)
-        else:
-            pointer, hidden_states = self.agent.choose_action(state)
+        # if round_idx < config.AMEND_ITER:
+        #     pointer, hidden_states = self.agent.choose_action_withAmender(state)
+        # else:
+        #     pointer, hidden_states = self.agent.choose_action(state)
+        # if time_counter < 9000:
+        #     pointer, hidden_states = self.agent.choose_action_withAmender(state)
+        # else:
+        #     pointer, hidden_states = self.agent.choose_action(state)
+        pointer, hidden_states = self.agent.choose_action(state)
 
         client_indexes = []
         if len(pointer) != 0:
@@ -389,7 +420,7 @@ class Scheduler_PN_method_2:
             if round_idx == 0:
                 csv_writer.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'reward', 'loss_a', 'loss_c'])
             csv_writer.writerow([time_counter, str(self.available_car[0].tolist()),\
-                                    str(state[0].tolist()), str(pointer),\
+                                    str(state[0,:,0].tolist()), str(pointer),\
                                     str(client_indexes), local_itr, reward]+loss)
             file.flush()
         return client_indexes, local_itr, (reward, *loss)
@@ -449,7 +480,7 @@ class Scheduler_PN_method_3:
             if round_idx == 0:
                 csv_writer.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'reward', 'loss_a', 'loss_c'])
             csv_writer.writerow([time_counter, str(self.available_car[0].tolist()),\
-                                    str(state[0].tolist()), str(pointer),\
+                                    str(state[0, :, 0].tolist()), str(pointer),\
                                     str(client_indexes), local_itr])
             file.flush()
         return client_indexes, local_itr        
@@ -505,17 +536,23 @@ class Scheduler_PN_method_3:
         # del available_car_last
         # ================================================================================================
         # train agent
-        self.agent.store_transition(self.state_last, self.action_last, [reward], state)
+        if reward <=10000 and reward >= -1000:
+            self.agent.store_transition(self.state_last, self.action_last, [reward], state)
         loss = [0, 0]
         if self.agent.memory:
             loss_a, td_error = self.agent.learn()
             loss = [loss_a, td_error]
         # ================================================================================================
         # produce action and mes
-        if round_idx < config.AMEND_ITER:
+        # if round_idx < config.AMEND_ITER:
+        #     pointer, hidden_states = self.agent.choose_action_withAmender(state)
+        # else:
+        #     pointer, hidden_states = self.agent.choose_action(state)
+        if time_counter < 9000:
             pointer, hidden_states = self.agent.choose_action_withAmender(state)
         else:
             pointer, hidden_states = self.agent.choose_action(state)
+        # pointer, hidden_states = self.agent.choose_action(state)
 
         client_indexes = []
         if len(pointer) != 0:
@@ -534,14 +571,14 @@ class Scheduler_PN_method_3:
             if round_idx == 0:
                 csv_writer.writerow(['time counter', 'available car', 'channel_state', 'pointer', 'client index', 'iteration', 'reward', 'loss_a', 'loss_c'])
             csv_writer.writerow([time_counter, str(self.available_car[0].tolist()),\
-                                    str(state[0].tolist()), str(pointer),\
+                                    str(state[0,:,0].tolist()), str(pointer),\
                                     str(client_indexes), local_itr, reward]+loss)
             file.flush()
         return client_indexes, local_itr, (reward, *loss)
 
 def sch_random(round_idx, time_counter):
     # set the seed
-    np.random.seed(round_idx)
+    # np.random.seed(round_idx)
 
     # random sample clients
     cars = list(channel_data[channel_data['Time'] == time_counter]['Car'])
@@ -556,7 +593,7 @@ def sch_random(round_idx, time_counter):
 
 def sch_channel(round_idx, time_counter):
     # set the seed
-    np.random.seed(round_idx)
+    # np.random.seed(round_idx)
 
     # sample only based on channel condition
     curr_channel = channel_data[channel_data['Time'] == time_counter]
@@ -571,7 +608,7 @@ def sch_channel(round_idx, time_counter):
  
 def sch_rrobin(round_idx, time_counter):
     # set the seed
-    np.random.seed(round_idx)
+    # np.random.seed(round_idx)
 
     cars = list(channel_data[channel_data['Time'] == time_counter]['Car'])
     queue.extend(cars)

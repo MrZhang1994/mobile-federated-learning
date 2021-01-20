@@ -18,7 +18,7 @@ import config
 from config import logger, logger_sch
 
 # add the root dir of FedML
-sys.path.insert(0, os.path.abspath("/zzp/FedML")) 
+sys.path.insert(0, os.path.abspath("../FedML-master")) 
 
 from fedml_api.data_preprocessing.cifar10.data_loader import load_partition_data_cifar10
 from fedml_api.data_preprocessing.cifar100.data_loader import load_partition_data_cifar100
@@ -279,10 +279,10 @@ def main():
     # Set the random seed. The np.random seed determines the dataset partition.
     # The torch_manual_seed determines the initial weight.
     # We fix these two, so that we can reproduce the result.
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    random.seed(args.seed)
-    torch.cuda.manual_seed_all(args.seed)
+    # np.random.seed(args.seed)
+    # torch.manual_seed(args.seed)
+    # random.seed(args.seed)
+    # torch.cuda.manual_seed_all(args.seed)
 
     # set if use logging debug version.
     logger.setLevel(logging.DEBUG)
@@ -323,7 +323,7 @@ def main():
     
     # initialize the wandb.
     wandb.init(
-        project="fedavg",
+        project="fedavg-new",
         name="FedAVG-" + str(args.method)[4:] + "-r" + str(args.comm_round) + "-fm" +str(args.fairness_multiplier),
         config=global_hyp
     )
