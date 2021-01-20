@@ -8,3 +8,5 @@ src/utils/__pycache__
 .vscode/
 # ignore results
 outs/
+# ignore partial results
+tmp/
