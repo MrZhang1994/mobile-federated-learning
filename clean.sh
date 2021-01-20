@@ -5,6 +5,7 @@ CACHE="./src/__pycache__/"
 CACHE2="./src/utils/__pycache__/"
 DATE=$(date +%F-%H-%M-%S)
 RESULT="./src/result/"
+TMP="./src/tmp/"
 OUTS="./outs"
 
 usage() {
@@ -36,6 +37,10 @@ fi
 # remove utils/__pycache__ dir
 if [ -d "$CACHE2" ]; then
       rm -rf $CACHE2
+fi
+
+if [ -d "$TMP" ]; then
+      rm -rf $TMP
 fi
 
 if [ -d "$RESULT" ]; then

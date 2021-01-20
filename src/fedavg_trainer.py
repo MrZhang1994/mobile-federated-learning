@@ -4,6 +4,7 @@ import wandb
 import time
 import math
 import csv
+import shutil
 from tqdm import tqdm
 
 import torch
@@ -25,13 +26,19 @@ class FedAvgTrainer(object):
         self.class_num = class_num
 
         # setup dataset
+        self.data_shape = list(train_data_global[0][0].size())
         self.train_data_local_num_dict = train_data_local_num_dict
         self.test_data_local_dict = test_data_local_dict
+        self.train_data_local_dict = train_data_local_dict
         if args.partition_method == "noniid":
             logger.info("-----------non-i.i.d transform----------")
-            self.train_data_local_dict = self.non_iid_dataset(train_data_global)
-        else:
-            self.train_data_local_dict = train_data_local_dict
+            # generate the non i.i.d dataset
+            self.gene_non_iid_dataset(train_data_global, "tmp")
+            # read the non i.i.d dataset
+            self.read_non_iid_dataset("tmp")
+            # rm the tmp directory
+            shutil.rmtree(os.path.join('.', 'tmp'))
+
         self.client_list = []
         self.setup_clients(train_data_local_num_dict, train_data_local_dict, test_data_local_dict)
         
@@ -246,7 +253,7 @@ class FedAvgTrainer(object):
                 "client_num": len(client_indexes),
                 "C3": (rho*delta)/beta,
                 "local_loss_var": np.var(loss_locals),
-                "local_ass_var": np.var(local_acc_lst)
+                "local_acc_var": np.var(local_acc_lst)
             })
 
             # update FPF index list
@@ -355,20 +362,21 @@ class FedAvgTrainer(object):
         loss_optimal = loss
         return w_optimal, loss_optimal
 
-    def non_iid_dataset(self, train_global):
+    def gene_non_iid_dataset(self, train_global, directory):
         """
         changing self.train_data_local_dict to non-i.i.d. dataset.
         And change self.train_data_local_num_dict correspondingly.
         """
         data, labels = train_global[0][0], train_global[0][1] # read the tensor from train_global.
-        data_shape = list(data.size())
         # transform shape
         data = data.view(data.shape[0], -1)
         labels = labels.view(labels.shape[0], -1)
         # get full_df
         full_df = pd.DataFrame(np.concatenate((data.numpy(), labels.numpy()), axis=1)).sample(frac=1, random_state=self.args.seed)
-        # distribute to each clients 
-        train_data_local_dict = dict()
+        # temporary store the data in dir
+        save_dir = os.path.join(".", directory)
+        if not os.path.exists(save_dir):
+            os.mkdir(save_dir)
         for client_idx in tqdm(range(self.client_num)):
             # get selected classes
             try:
@@ -385,16 +393,18 @@ class FedAvgTrainer(object):
             except:
                 selected_data = valid_data
                 self.train_data_local_dict[client_idx] = len(selected_data)
-            # update the data shape
-            data_shape[0] = local_num 
             # update the local client data
-            new_data = torch.from_numpy(selected_data.iloc[:, 0:-1].values).view(data_shape)
-            new_labels = torch.from_numpy(selected_data.iloc[:, -1].values)
-            train_data_local_dict[client_idx] = [(new_data, new_labels)]
+            np.save(os.path.join(save_dir, "client_{}_data.npy".format(client_idx)), selected_data.iloc[:, 0:-1].values)
+            np.save(os.path.join(save_dir, "client_{}_labels.npy".format(client_idx)), selected_data.iloc[:, -1].values)
             # remove the data from the full_df
             full_df = full_df.drop(index=selected_data.index)
-        
-        return train_data_local_dict
+    
+    def read_non_iid_dataset(self, directory):
+        for client_idx in tqdm(range(self.client_num)):
+            data_shape = [self.train_data_local_num_dict[client_idx]] + self.data_shape[1:]
+            data_path = os.path.join(".", directory, "client_{}_data.npy".format(client_idx))
+            labels_path = os.path.join(".", directory, "client_{}_labels.npy".format(client_idx))
+            self.train_data_local_dict[client_idx] = [(torch.from_numpy(np.load(data_path)).view(tuple(data_shape)).float(), torch.from_numpy(np.load(labels_path)).long())]            
 
     def tx_time(self, client_indexes):
         if not client_indexes:
@@ -492,6 +502,7 @@ class FedAvgTrainer(object):
                 "Train/round": round_idx,
                 "Train/cum_time": self.time_counter+self.cycle_num*59361,
             })
+
             return test_acc, np.array(train_metrics['num_correct']) / np.array(train_metrics['num_samples'])
 
         if if_log:

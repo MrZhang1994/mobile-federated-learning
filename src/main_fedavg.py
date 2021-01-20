@@ -68,7 +68,8 @@ def add_args():
 
     parser.add_argument('--lr', type=float, default=0.001, metavar='LR',
                         help='learning rate (default: 0.001)')
-
+    parser.add_argument('--clip', type=float, default=0.1, metavar='CLIP',
+                        help='Gradient clipping.')
     parser.add_argument('--wd', help='weight decay parameter;', type=float, default=0.001)
 
     parser.add_argument('--comm_round', type=int, default=1000,

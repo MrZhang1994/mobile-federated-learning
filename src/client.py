@@ -50,6 +50,7 @@ class Client:
         net.eval()
         last_w = torch.cat([param.view(-1) for param in net.parameters()]) # get last weights
         last_loss = self.criterion(net(x), labels)
+        torch.nn.utils.clip_grad_norm(net.parameters(), self.args.clip)
         last_loss.backward()
         last_loss = last_loss.item() # get last loss 
         last_grads = torch.cat([param.grad.view(-1) for param in net.parameters()]) # calculate grads.   
@@ -59,6 +60,7 @@ class Client:
             net.zero_grad()
             log_probs = net(x)
             loss = self.criterion(log_probs, labels)
+            torch.nn.utils.clip_grad_norm(net.parameters(), self.args.clip)
             loss.backward()
             grads = torch.cat([param.grad.view(-1) for param in net.parameters()]) # get current grads
             # if grads meets something strange, we will terminate the training process.
