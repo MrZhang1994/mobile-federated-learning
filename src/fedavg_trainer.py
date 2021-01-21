@@ -164,7 +164,7 @@ class FedAvgTrainer(object):
             # store the last model's training parameters.
             last_w = copy.deepcopy(self.model_global.cpu().state_dict())
             # local Initialization
-            w_locals, loss_locals, beta_locals, rho_locals = [], [], [], []
+            w_locals, loss_locals, beta_locals, rho_locals, cycle_locals = [], [], [], [], []
             """
             for scalability: following the original FedAvg algorithm, we uniformly sample a fraction of clients in each round.
             Instead of changing the 'Client' instances, our implementation keeps the 'Client' instances and then updates their local dataset 
@@ -186,13 +186,15 @@ class FedAvgTrainer(object):
                     # train on new dataset
                     # add a new parameter "local_itr" to the funciton "client.train()"
                     # add a new return value "time_interval" which is the time consumed for training model in client.
-                    w, loss, local_beta, local_rho, local_acc = client.train(net=copy.deepcopy(self.model_global).to(self.device), local_iteration = local_itr)
+                    w, loss, local_beta, local_rho, local_acc, local_cycle = client.train(net=copy.deepcopy(self.model_global).to(self.device), local_iteration = local_itr)
                     if loss != None and local_beta != None and local_rho != None and local_acc != None:
                         if dataset_idx != current_idx:
                             self.invalid_datasets[dataset_idx] = current_idx
                         break
                     current_idx = np.random.randint(self.class_num)
                     logger.warning("changing dataset for {} to {}".format(client_idx, current_idx))
+                # record current cycle
+                cycle_locals.append([client.get_sample_number(), local_cycle])
                 # record current w into w_locals
                 w_locals.append((client.get_sample_number(), copy.deepcopy(w)))
                 # record current loss into loss_locals
@@ -232,6 +234,10 @@ class FedAvgTrainer(object):
                 logger.info('Round {:3d}, Average loss {:.3f}'.format(round_idx, loss_avg))
                 trainer_csv_line.append(loss_avg)
 
+            if cycle_locals:
+                cycle_locals = np.asarray(cycle_locals)
+                logger.info('Elapsed cycles {:.3f}'.format(np.sum(cycle_locals[:, 0] * cycle_locals[:, 1]) / np.sum(cycle_locals[:, 0])))
+
             # local test on all client.
             if round_idx % self.args.frequency_of_the_test == 0 or round_idx == self.args.comm_round - 1:
                 test_acc, _ = self.local_test_on_all_clients(self.model_global, round_idx, EVAL_ON_TRAIN, True)
@@ -260,12 +266,7 @@ class FedAvgTrainer(object):
                 "C3": (rho*delta)/beta,
                 "local_loss_var": np.var(loss_locals),
                 "local_acc_var": np.var(local_acc_lst)
-<<<<<<< HEAD
-            })
-
-=======
             }
->>>>>>> a53025de3e26d58f0b5d57dedfd3813f1a175f49
             # update FPF index list
             if weight_size < THRESHOLD_WEIGHT_SIZE:
                 FPF2_idx_lst = torch.norm(local_w_diffs * A_mat, dim = 1) / G_mat
