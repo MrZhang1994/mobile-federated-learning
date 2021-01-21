@@ -89,7 +89,8 @@ def add_args():
 
     parser.add_argument('--seed', type=int, default=0,
                         help='the random seed')
-                        
+    parser.add_argument("-c", "--cpu", action= "store_true", dest= "cpu", 
+                        help= "enable cpu")                    
     # set if using debug mod
     parser.add_argument("-v", "--verbose", action= "store_true", dest= "verbose", 
                         help= "enable debug info output")
@@ -304,14 +305,17 @@ def main():
     logger.info(global_hyp)
 
     logger.info("---------cuda device setting-----------")
-    if torch.cuda.is_available():
-        if args.gpu >= torch.cuda.device_count():
-            logger.error("CUDA error, invalid device ordinal")
-            exit(1)
+    if args.cpu:
+        device = torch.device("cpu")
     else:
-        logger.error("Plz choose other machine with GPU to run the program")
-        exit(1)
-    device = torch.device("cuda:" + str(args.gpu))
+        if torch.cuda.is_available():
+            if args.gpu >= torch.cuda.device_count():
+                logger.error("CUDA error, invalid device ordinal")
+                exit(1)
+        else:
+            logger.error("Plz choose other machine with GPU to run the program")
+            exit(1)
+        device = torch.device("cuda:" + str(args.gpu))
     logger.info(device)
 
     # load data
