@@ -68,8 +68,8 @@ logger_sch = logging.getLogger('schedule')
 # set hyperparameters for Trainer
 # ===============================
 # set the requirement.
-RES_WEIGHT = 0.5
-RES_RATIO = 0.1 # the ratio of radio_res
+RES_WEIGHT = 0.5 # weight
+RES_RATIO = 0.1 # 1 / Bandwith
 # set hyperparameter for calculating FPF2 index
 G1 = 2
 G2 = 2

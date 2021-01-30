@@ -65,7 +65,8 @@ def add_args():
 
     parser.add_argument('--client_optimizer', type=str, default='adam',
                         help='SGD with momentum; adam')
-
+    parser.add_argument('--radio_alloc', type=str, default='optimal',
+                        help='radio resource allocation method.')
     parser.add_argument('--lr', type=float, default=0.001, metavar='LR',
                         help='learning rate (default: 0.001)')
     parser.add_argument('--clip', type=float, default=0.1, metavar='CLIP',
@@ -206,7 +207,7 @@ def load_data(args, dataset_name):
         train_data_num, test_data_num, train_data_global, test_data_global, \
         train_data_local_num_dict, train_data_local_dict, test_data_local_dict, \
         class_num = data_loader(args.dataset, args.data_dir, args.partition_method,
-                                args.partition_alpha, args.client_num_in_total, batch_size)
+                                args.partition_alpha, config.client_num_in_total, batch_size)
  
     logger.info("-------------batches combine------------")
     train_data_global = combine_batches(train_data_global)

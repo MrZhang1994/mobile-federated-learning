@@ -428,9 +428,12 @@ class FedAvgTrainer(object):
 
         # linearly resolve the optimazation problem
         tmp_t = 1
-        while np.sum(RES_WEIGHT * channel_res * RES_RATIO / tmp_t) > 1:
-            tmp_t += 1
-
+        if self.args.radio_alloc == "optimal":
+            while np.sum(RES_WEIGHT * channel_res * RES_RATIO / tmp_t) > 1:
+                tmp_t += 1
+        elif self.args.radio_alloc == "uniform":
+            while np.max(channel_res) * RES_WEIGHT * RES_RATIO * len(channel_res) / tmp_t > 1:
+                tmp_t += 1
         self.time_counter += math.ceil(TIME_COMPRESSION_RATIO*tmp_t)
 
         logger.debug("time_counter after tx_time: {}".format(self.time_counter))
